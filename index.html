@@ -72,7 +72,7 @@
             <div class="stats"><span id="menuWins">0</span>🏆 <span id="menuGames">0</span>🎮</div>
         </div>
         <div style="display:flex; flex-direction:column; gap:16px; margin-top:20px;">
-            <button class="btn btn-primary" id="createGameBtn">🎲 Создать игру (админ)</button>
+            <button class="btn btn-primary" id="createGameBtn">🎲 Создать игру</button>
             <button class="btn" id="joinGameBtn">🔗 Присоединиться</button>
             <button class="btn" id="profileBtn">👤 Мой профиль</button>
             <button class="btn" id="vkAuthBtn">🔑 Войти через VK</button>
@@ -102,10 +102,10 @@
     </div>
 </div>
 
-<!-- НАСТРОЙКИ ИГРЫ (АДМИН ПАНЕЛЬ) -->
+<!-- НАСТРОЙКИ ИГРЫ -->
 <div id="gameSettingsModal" class="modal-overlay" style="display:none;">
     <div class="modal-card">
-        <h3>Настройки игры (админ)</h3>
+        <h3>Настройки игры</h3>
         <div class="settings-row">
             <label>Количество ботов:</label>
             <div><span id="botCountValue">3</span> <input type="range" id="botCountSlider" min="0" max="8" value="3" step="1" style="width:140px;"></div>
@@ -149,7 +149,7 @@
         <h3>Лобби: код <span id="roomCode">----</span></h3>
         <div class="players-grid" id="lobbyPlayersList"></div>
         <button class="btn btn-primary" id="readyBtn" style="width:100%;">✅ Готов</button>
-        <button class="btn btn-success" id="startGameBtn" style="width:100%; margin-top:8px;" disabled>🚀 Начать игру (админ)</button>
+        <button class="btn btn-success" id="startGameBtn" style="width:100%; margin-top:8px;" disabled>🚀 Начать игру</button>
         <button class="btn" id="inviteVkBtn" style="margin-top:8px;">👥 Пригласить друзей</button>
     </div>
 </div>
