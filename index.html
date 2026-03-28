@@ -233,6 +233,7 @@
     let skipVotes = new Set();
     let fakeVideoStreams = new Map();
     let silencedPlayers = new Set();
+    let currentLobbyCode = null;    // храним код текущего лобби
 
     // ------------------- VK Bridge (с таймаутом) -------------------
     async function initVK() {
@@ -422,12 +423,12 @@
         return event;
     }
 
-    // ------------------- Игровая логика с одновременными ночными действиями -------------------
+    // ------------------- Игровая логика -------------------
     const PHASES = ['day', 'night', 'voting'];
     function getDurationForPhase(phase) {
         if (phase === 'day') return gameSettings.day;
         if (phase === 'voting') return gameSettings.vote;
-        return gameSettings.night; // ночь
+        return gameSettings.night;
     }
     function getPhaseDisplay(phase) {
         const map = {
@@ -469,7 +470,7 @@
         const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
         if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay(currentPhase);
         if (currentPhase === 'night') {
-            triggerNightActions();  // все действия ночи запускаются одновременно
+            triggerNightActions();
         } else if (currentPhase === 'day') {
             const eventText = getRandomCityEvent();
             addChatMessage('🌆 Городские новости', eventText, 'event-message');
@@ -483,7 +484,6 @@
         const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
         if (!currentPlayer || !currentPlayer.alive) return;
 
-        // Определяем, какие роли есть у игрока
         let actions = [];
         if (currentPlayer.role === 'mafia') actions.push({ type: 'mafia', title: 'Выберите жертву (мафия)' });
         if (currentPlayer.role === 'maniac') actions.push({ type: 'maniac', title: 'Выберите жертву (маньяк)' });
@@ -491,17 +491,14 @@
         if (currentPlayer.role === 'beauty') actions.push({ type: 'beauty', title: 'Кого заглушить? (игрок не сможет говорить завтра днём)' });
 
         if (actions.length === 0) {
-            // У игрока нет активной роли, он просто ждёт окончания ночи
             addChatMessage('Система', 'Ночь. Вы не можете совершать действий.', 'event-message');
             return;
         }
 
-        // Показываем модальные окна последовательно, но все они в рамках одной ночной фазы
         let currentActionIndex = 0;
 
         function showNextAction() {
             if (currentActionIndex >= actions.length) {
-                // Все действия выполнены, ждём окончания ночи (таймер сам завершит фазу)
                 addChatMessage('Система', 'Вы сделали все возможные действия этой ночью.', 'event-message');
                 return;
             }
@@ -699,7 +696,7 @@
         }
     }
 
-    // ------------------- Лобби -------------------
+    // ------------------- Лобби с подключением реальных игроков -------------------
     function showGameSettings() {
         document.getElementById('botCountSlider').value = gameSettings.botCount;
         document.getElementById('botCountValue').innerText = gameSettings.botCount;
@@ -733,14 +730,17 @@
             }
         };
         lobbyPlayers = [];
-        lobbyPlayers.push({ id: 'p' + Date.now(), name: currentUser.nickname, avatar: currentUser.avatar || '😊', isHost: true, isReady: true, isBot: false });
+        const playerId = 'p' + Date.now() + '_' + Math.random();
+        lobbyPlayers.push({ id: playerId, name: currentUser.nickname, avatar: currentUser.avatar || '😊', isHost: true, isReady: true, isBot: false });
         isHost = true;
         for (let i = 0; i < botCount; i++) {
             lobbyPlayers.push({ id: 'bot' + Date.now() + '_' + i, name: `Бот ${i+1}`, avatar: '🤖', isHost: false, isReady: true, isBot: true, difficulty: botDifficulty });
         }
+        // Генерируем код комнаты (6 цифр)
+        currentLobbyCode = Math.floor(100000 + Math.random() * 900000).toString();
+        document.getElementById('roomCode').innerText = currentLobbyCode;
         updateLobbyUI();
         showScreen('lobbyScreen');
-        document.getElementById('roomCode').innerText = Math.random().toString(36).substring(2,8).toUpperCase();
         document.getElementById('gameSettingsModal').style.display = 'none';
     }
     function updateLobbyUI() {
@@ -749,8 +749,47 @@
         const readyCount = lobbyPlayers.filter(p => p.isReady).length;
         document.getElementById('startGameBtn').disabled = readyCount < 4 || !isHost;
     }
+    function joinGameByCode() {
+        const code = prompt("Введите 6-значный код игры:");
+        if (!code) return;
+        if (code.length !== 6 || !/^\d+$/.test(code)) {
+            showMessage("Неверный формат кода (6 цифр)", true);
+            return;
+        }
+        // В демо-версии просто проверяем, что код совпадает с текущим лобби, если оно существует
+        if (!currentLobbyCode) {
+            showMessage("Нет активных лобби. Сначала создайте игру.", true);
+            return;
+        }
+        if (code !== currentLobbyCode) {
+            showMessage("Код не найден. Проверьте правильность.", true);
+            return;
+        }
+        // Подключаемся как новый реальный игрок
+        const newId = 'p' + Date.now() + '_' + Math.random();
+        const newPlayer = {
+            id: newId,
+            name: currentUser.nickname,
+            avatar: currentUser.avatar || '😊',
+            isHost: false,
+            isReady: true,
+            isBot: false
+        };
+        lobbyPlayers.push(newPlayer);
+        updateLobbyUI();
+        showMessage(`Вы присоединились к игре! Код: ${code}`);
+        // Если подключились после того, как игра уже началась, это недопустимо, но у нас лобби ещё активно
+    }
     function startGame() {
-        if (!isHost) return;
+        if (!isHost) {
+            showMessage("Только хост может начать игру", true);
+            return;
+        }
+        const readyCount = lobbyPlayers.filter(p => p.isReady).length;
+        if (readyCount < 4) {
+            showMessage(`Недостаточно игроков (готово ${readyCount}/4)`, true);
+            return;
+        }
         const allPlayers = [...lobbyPlayers];
         showScreen('gameScreen');
         initMedia().then(() => {
@@ -822,7 +861,7 @@
         document.getElementById('createGameBtn').onclick = showGameSettings;
         document.getElementById('confirmSettingsBtn').onclick = createLobbyFromSettings;
         document.getElementById('cancelSettingsBtn').onclick = () => document.getElementById('gameSettingsModal').style.display = 'none';
-        document.getElementById('joinGameBtn').onclick = () => { const code = prompt("Введите код игры:"); if(code) alert(`Подключение к игре ${code} (демо)`); };
+        document.getElementById('joinGameBtn').onclick = joinGameByCode;
         document.getElementById('profileBtn').onclick = () => { loadProfileDataIntoForm(); showScreen('profileScreen'); };
         document.getElementById('backToMenu').onclick = () => showScreen('menuScreen');
         document.getElementById('saveProfileBtn').onclick = async () => {
@@ -833,10 +872,10 @@
             await saveProfile(); updateProfileUI(); showMessage('Профиль сохранён'); showScreen('menuScreen');
         };
         document.getElementById('vkAuthBtn').onclick = async () => { if (!vkBridgeReady) alert('VK Bridge не инициализирован'); else { await getVKUser(); await loadProfile(); showMessage('VK привязан'); showScreen('menuScreen'); } };
-        document.getElementById('lobbyBackBtn').onclick = () => showScreen('menuScreen');
+        document.getElementById('lobbyBackBtn').onclick = () => { currentLobbyCode = null; lobbyPlayers = []; showScreen('menuScreen'); };
         document.getElementById('readyBtn').onclick = () => { const p = lobbyPlayers.find(p => p.name === currentUser.nickname); if(p) p.isReady = true; updateLobbyUI(); };
         document.getElementById('startGameBtn').onclick = startGame;
-        document.getElementById('inviteVkBtn').onclick = () => { if(vkBridgeReady) VKWebAppShowInviteBox(); else alert('Скопируйте ссылку и поделитесь'); };
+        document.getElementById('inviteVkBtn').onclick = () => { if(vkBridgeReady) VKWebAppShowInviteBox(); else alert(`Скопируйте код: ${currentLobbyCode}`); };
         document.getElementById('skipPhaseBtn').onclick = trySkipPhase;
         document.getElementById('toggleMicBtn').onclick = toggleMicrophone;
         document.getElementById('toggleCamBtn').onclick = toggleCamera;
