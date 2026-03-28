@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Мафия Online — Админ панель</title>
+    <title>Мафия Online — Полная версия</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif; background: linear-gradient(135deg, #0b1120 0%, #1e2a3a 100%); min-height: 100vh; color: #e2e8f0; }
@@ -23,7 +23,8 @@
         .player-card { background: rgba(0, 0, 0, 0.5); border-radius: 20px; padding: 12px; text-align: center; transition: 0.2s; border: 1px solid rgba(255, 255, 255, 0.1); position: relative; }
         .player-card.host { border-color: #fbbf24; background: rgba(251, 191, 36, 0.2); }
         .player-card.ready { border-color: #10b981; background: rgba(16, 185, 129, 0.2); }
-        .game-phase { text-align: center; font-size: 1.5rem; font-weight: bold; margin: 16px 0; background: #1e293b; border-radius: 60px; padding: 12px; }
+        .game-phase { text-align: center; font-size: 1.5rem; font-weight: bold; margin: 16px 0; background: #1e293b; border-radius: 60px; padding: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .game-phase span { flex: 1; text-align: center; }
         .timer { font-size: 3rem; font-weight: bold; text-align: center; font-family: monospace; margin: 16px 0; background: #00000066; border-radius: 60px; padding: 8px; animation: pulse 1s infinite; }
         .chat-box { background: #0f1724; border-radius: 24px; padding: 12px; max-height: 200px; overflow-y: auto; margin-top: 20px; }
         .message { margin-bottom: 8px; font-size: 0.9rem; border-bottom: 1px solid #334155; padding: 6px; }
@@ -33,18 +34,19 @@
         .modal-card { background: #1e293b; border-radius: 32px; padding: 24px; max-width: 90%; width: 420px; animation: fadeIn 0.2s; max-height: 80vh; overflow-y: auto; }
         .vote-options { display: grid; gap: 12px; margin: 20px 0; }
         .vote-option { background: #0f1724; padding: 12px; border-radius: 60px; text-align: center; cursor: pointer; transition: 0.1s; }
-        .avatar-grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin: 20px 0; }
-        .avatar-item { width: 100px; text-align: center; position: relative; }
-        .video-circle { width: 90px; height: 90px; background: #000; border-radius: 50%; margin: 0 auto 8px; border: 3px solid #4a5568; overflow: hidden; position: relative; }
+        .avatar-grid { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; margin: 20px 0; }
+        .avatar-item { width: 130px; text-align: center; position: relative; }
+        .video-circle { width: 120px; height: 120px; background: #000; border-radius: 16px; margin: 0 auto 8px; border: 3px solid #4a5568; overflow: hidden; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         .video-circle video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         .video-circle.dead { filter: grayscale(1); opacity: 0.6; }
-        .avatar-name { font-size: 0.8rem; font-weight: bold; word-break: break-word; }
-        .avatar-status { font-size: 0.7rem; margin-top: 4px; display: flex; justify-content: center; gap: 8px; }
-        .mic-indicator, .cam-indicator { display: inline-block; width: 24px; text-align: center; }
+        .avatar-name { font-size: 0.9rem; font-weight: bold; word-break: break-word; margin-top: 4px; }
+        .avatar-status { font-size: 1rem; margin-top: 6px; display: flex; justify-content: center; gap: 12px; }
+        .mic-indicator, .cam-indicator { display: inline-block; width: 28px; text-align: center; font-size: 1.1rem; }
         .mic-indicator.on, .cam-indicator.on { color: #10b981; }
         .mic-indicator.off, .cam-indicator.off { color: #ef4444; }
         .skip-vote-info { font-size: 0.75rem; background: #334155; border-radius: 20px; padding: 4px 8px; display: inline-block; margin-left: 8px; }
         .video-controls { display: flex; gap: 8px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+        .video-controls .btn { padding: 6px 12px; font-size: 0.85rem; }
         .avatar-option { display: inline-block; font-size: 2rem; margin: 8px; cursor: pointer; padding: 8px; border-radius: 50%; background: #2d3748; width: 60px; text-align: center; }
         .avatar-option.selected { background: #667eea; transform: scale(1.1); }
         .settings-row { margin: 12px 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -55,7 +57,7 @@
         .event-message { background: #f59e0b20; border-left: 4px solid #f59e0b; padding: 8px; margin: 8px 0; border-radius: 12px; }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        @media (max-width: 640px) { .container { padding: 16px; } .video-circle { width: 70px; height: 70px; } .avatar-name { font-size: 0.7rem; } }
+        @media (max-width: 640px) { .avatar-item { width: 100px; } .video-circle { width: 90px; height: 90px; } .avatar-name { font-size: 0.7rem; } }
     </style>
     <script src="https://vk.com/js/api/openapi.js?169"></script>
 </head>
@@ -129,7 +131,7 @@
         <div class="role-checkbox"><input type="checkbox" id="roleManiac"> <label for="roleManiac">Маньяк</label></div>
         <div class="role-checkbox"><input type="checkbox" id="roleDoctor"> <label for="roleDoctor">Доктор</label></div>
         <div class="role-checkbox"><input type="checkbox" id="roleCommissar"> <label for="roleCommissar">Комиссар</label></div>
-        <div class="role-checkbox"><input type="checkbox" id="roleBeauty"> <label for="roleBeauty">Красотка (один раз может отклонить голосование против себя)</label></div>
+        <div class="role-checkbox"><input type="checkbox" id="roleBeauty"> <label for="roleBeauty">Красотка (заглушает игрока на день)</label></div>
         <div class="role-checkbox"><input type="checkbox" id="rolePatrol"> <label for="rolePatrol">Патрульный (проверяет, мафия ли)</label></div>
         <div class="settings-row" style="margin-top: 16px;">
             <label>Количество мафии:</label>
@@ -157,13 +159,15 @@
 <!-- ИГРА -->
 <div id="gameScreen" class="screen">
     <div class="container">
-        <div class="game-phase" id="phaseName">Дневное обсуждение</div>
+        <div class="game-phase" id="phaseName">
+            <span>Дневное обсуждение</span>
+            <button class="btn btn-warning" id="skipPhaseBtn" style="padding: 6px 16px;">⏭️ Пропустить фазу</button>
+        </div>
         <div class="timer" id="timerValue">00</div>
         <div class="video-controls">
             <button class="btn" id="toggleMicBtn">🎤 Микрофон (вкл)</button>
             <button class="btn" id="toggleCamBtn">📹 Камера (вкл)</button>
             <span id="voiceStatus" class="voice-status">🔊 Дневной чат</span>
-            <button class="btn btn-warning" id="skipPhaseBtn">⏭️ Пропустить фазу</button>
             <span id="skipVoteInfo" class="skip-vote-info">0/0 голосов за пропуск</span>
         </div>
         <div class="avatar-grid" id="avatarGrid"></div>
@@ -200,6 +204,7 @@
     let gameSettings = { day: 45, night: 25, vote: 30, botCount: 3, botDifficulty: 'medium', mafiaCount: 1, roles: { mafia: true, maniac: false, doctor: false, commissar: false, beauty: false, patrol: false } };
     let skipVotes = new Set();
     let fakeVideoStreams = new Map();
+    let silencedPlayers = new Set(); // игроки, заглушенные красоткой (не могут говорить в этот день)
 
     const cityEvents = [
         "🌧️ В городе начался ливень. Обсуждение становится тише.",
@@ -267,7 +272,7 @@
         document.getElementById('profilePreview').style.display = 'flex';
     }
 
-    // ------------------- Медиа (реальная камера и микрофон) -------------------
+    // ------------------- Медиа -------------------
     async function initMedia() {
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -289,6 +294,11 @@
     }
     function toggleMicrophone() {
         if (!localStream) return;
+        // проверяем, не заглушен ли игрок
+        if (silencedPlayers.has(currentUser.id) && currentPhase === 'day') {
+            showMessage('Вы заглушены красоткой и не можете говорить в этот день!');
+            return;
+        }
         isMicEnabled = !isMicEnabled;
         localStream.getAudioTracks().forEach(t => t.enabled = isMicEnabled);
         if (gameState) { const p = gameState.players.find(p => p.name === currentUser.nickname); if (p) p.micOn = isMicEnabled; updateAvatarGrid(); }
@@ -305,14 +315,18 @@
     }
     function updateVoiceChatAccess() {
         if (!localStream) return;
-        const isDay = currentPhase === 'day' || currentPhase === 'voting';
-        localStream.getAudioTracks().forEach(t => t.enabled = isDay && isMicEnabled);
+        const isDay = currentPhase === 'day';
+        const isSilenced = silencedPlayers.has(currentUser.id) && isDay;
+        const canTalk = isDay && !isSilenced && isMicEnabled;
+        localStream.getAudioTracks().forEach(t => t.enabled = canTalk);
         const statusSpan = document.getElementById('voiceStatus');
-        statusSpan.innerHTML = isDay ? '🔊 Дневной чат (активен)' : '🔇 Ночная фаза (микрофон выключен)';
-        statusSpan.style.color = isDay ? '#10b981' : '#f59e0b';
+        if (isSilenced) statusSpan.innerHTML = '🔇 Заглушен красоткой (день)';
+        else if (isDay) statusSpan.innerHTML = '🔊 Дневной чат (активен)';
+        else statusSpan.innerHTML = '🔇 Ночная фаза (микрофон выключен)';
+        statusSpan.style.color = canTalk ? '#10b981' : '#f59e0b';
     }
 
-    // ------------------- Создание искусственного видео для ботов -------------------
+    // ------------------- Искусственное видео для ботов -------------------
     function createFakeVideoStream() {
         const canvas = document.createElement('canvas');
         canvas.width = 160;
@@ -337,19 +351,16 @@
         return stream;
     }
 
-    // ------------------- Распределение ролей на основе настроек админа -------------------
+    // ------------------- Распределение ролей -------------------
     function assignRolesFromSettings(players) {
         const roles = [];
-        // мафия
         for (let i = 0; i < gameSettings.mafiaCount; i++) roles.push('mafia');
         if (gameSettings.roles.maniac) roles.push('maniac');
         if (gameSettings.roles.doctor) roles.push('doctor');
         if (gameSettings.roles.commissar) roles.push('commissar');
         if (gameSettings.roles.beauty) roles.push('beauty');
         if (gameSettings.roles.patrol) roles.push('patrol');
-        // остальные мирные
         while (roles.length < players.length) roles.push('civilian');
-        // перемешиваем
         for (let i = roles.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [roles[i], roles[j]] = [roles[j], roles[i]];
@@ -364,12 +375,24 @@
         return players;
     }
 
-    // ------------------- Игровая логика -------------------
-    const PHASES = ['night_mafia', 'night_maniac', 'night_doctor', 'night_commissar', 'day', 'voting'];
+    // ------------------- Игровая логика с правильным порядком фаз -------------------
+    const PHASES = ['day', 'night_mafia', 'night_maniac', 'night_doctor', 'night_commissar', 'night_beauty', 'voting'];
     function getDurationForPhase(phase) {
         if (phase === 'day') return gameSettings.day;
         if (phase === 'voting') return gameSettings.vote;
         return gameSettings.night;
+    }
+    function getPhaseDisplay(phase) {
+        const map = {
+            day: '☀️ Дневное обсуждение',
+            night_mafia: '🌙 Ночь — мафия выбирает жертву',
+            night_maniac: '🌙 Ночь — маньяк выбирает жертву',
+            night_doctor: '💊 Ночь — доктор лечит',
+            night_commissar: '🔍 Ночь — комиссар проверяет',
+            night_beauty: '💃 Ночь — красотка выбирает, кого заглушить',
+            voting: '🗳️ Голосование (нажмите на аватар для голоса)'
+        };
+        return map[phase] || phase;
     }
     function showRoleModal(icon, text, onClose) {
         const modal = document.createElement('div'); modal.className = 'modal-overlay';
@@ -387,27 +410,104 @@
         if (!gameState) return;
         let idx = PHASES.indexOf(gameState.phase);
         if (idx === -1) idx = 0;
-        if (gameState.phase === 'night_commissar') { resolveNight(); return; }
-        if (gameState.phase === 'voting') { resolveVoting(); return; }
-        idx++; if (idx >= PHASES.length) { gameState.phase = 'night_mafia'; gameState.day++; idx = 0; } else gameState.phase = PHASES[idx];
+        idx++;
+        if (idx >= PHASES.length) {
+            // день завершён, начинаем новый цикл с дня
+            gameState.day++;
+            idx = 0;
+            // снимаем заглушение с предыдущего дня
+            silencedPlayers.clear();
+        }
+        gameState.phase = PHASES[idx];
         currentPhase = gameState.phase;
         startPhaseTimer(getDurationForPhase(currentPhase));
-        skipVotes.clear(); updateSkipVoteInfo();
+        skipVotes.clear();
+        updateSkipVoteInfo();
         updateAvatarGrid();
         updateVoiceChatAccess();
+        const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
+        if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay(currentPhase);
         if (currentPhase.includes('night')) triggerNightAction();
-        else if (currentPhase === 'day') addChatMessage('🌆 Городские новости', cityEvents[Math.floor(Math.random() * cityEvents.length)], 'event-message');
+        else if (currentPhase === 'day') {
+            addChatMessage('🌆 Городские новости', cityEvents[Math.floor(Math.random() * cityEvents.length)], 'event-message');
+            // если кто-то заглушен, показываем предупреждение
+            if (silencedPlayers.size) {
+                const silencedNames = Array.from(silencedPlayers).map(id => gameState.players.find(p => p.id === id)?.name).filter(Boolean);
+                if (silencedNames.length) addChatMessage('Ведущий', `Красотка заглушила: ${silencedNames.join(', ')}. Они не могут говорить сегодня.`, 'event-message');
+            }
+        }
+    }
+    function triggerNightAction() {
+        const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
+        if (!currentPlayer || !currentPlayer.alive) return;
+        let actionType = null;
+        if (currentPhase === 'night_mafia' && currentPlayer.role === 'mafia') actionType = 'mafia';
+        else if (currentPhase === 'night_maniac' && currentPlayer.role === 'maniac') actionType = 'maniac';
+        else if (currentPhase === 'night_doctor' && currentPlayer.role === 'doctor') actionType = 'doctor';
+        else if (currentPhase === 'night_commissar' && currentPlayer.role === 'commissar') actionType = 'commissar';
+        else if (currentPhase === 'night_beauty' && currentPlayer.role === 'beauty') actionType = 'beauty';
+        if (!actionType) {
+            // если у текущего игрока нет действия, просто пропускаем фазу (но таймер идёт)
+            return;
+        }
+        const aliveOthers = gameState.players.filter(p => p.alive && p.id !== currentPlayer.id);
+        if (aliveOthers.length === 0) {
+            addChatMessage('Система', 'Некого выбирать, фаза пропускается.');
+            return;
+        }
+        const modal = document.getElementById('actionModal');
+        let title = '';
+        if (actionType === 'mafia') title = 'Выберите жертву (мафия)';
+        else if (actionType === 'maniac') title = 'Выберите жертву (маньяк)';
+        else if (actionType === 'doctor') title = 'Кого лечить? (спасёт от убийства)';
+        else if (actionType === 'commissar') title = 'Кого проверить? (узнаете роль)';
+        else if (actionType === 'beauty') title = 'Кого заглушить? (игрок не сможет говорить завтра днём)';
+        document.getElementById('modalTitle').innerText = title;
+        const optionsDiv = document.getElementById('modalOptions');
+        optionsDiv.innerHTML = aliveOthers.map(p => `<div class="vote-option" data-id="${p.id}">${p.name}</div>`).join('');
+        modal.style.display = 'flex';
+        const clickHandler = (e) => {
+            const targetDiv = e.target.closest('.vote-option');
+            if (!targetDiv) return;
+            const targetId = targetDiv.getAttribute('data-id');
+            if (actionType === 'mafia') gameState.nightActions.mafiaTarget = targetId;
+            else if (actionType === 'maniac') gameState.nightActions.maniacTarget = targetId;
+            else if (actionType === 'doctor') gameState.nightActions.doctorTarget = targetId;
+            else if (actionType === 'commissar') {
+                const target = gameState.players.find(p => p.id === targetId);
+                const isEvil = target.role === 'mafia' || target.role === 'maniac';
+                alert(`Комиссар: ${target.name} — ${isEvil ? 'ЗЛО' : 'МИРНЫЙ'}`);
+                addChatMessage('Комиссар', `Вы проверили ${target.name}. Результат: ${isEvil ? 'ЗЛО' : 'МИРНЫЙ'}`);
+            } else if (actionType === 'beauty') {
+                silencedPlayers.add(targetId);
+                addChatMessage('Красотка', `Вы заглушили ${gameState.players.find(p => p.id === targetId).name} на завтрашний день.`);
+            }
+            modal.style.display = 'none';
+            optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.removeEventListener('click', clickHandler));
+            // после выбора сразу завершаем фазу (переходим к следующей)
+            if (gameInterval) clearInterval(gameInterval);
+            nextPhase();
+        };
+        optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.addEventListener('click', clickHandler));
+        document.getElementById('modalCancelBtn').onclick = () => {
+            modal.style.display = 'none';
+            optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.removeEventListener('click', clickHandler));
+            nextPhase();
+        };
     }
     function resolveNight() {
+        // убийства с учётом лечения
         const { mafiaTarget, maniacTarget, doctorTarget } = gameState.nightActions;
-        let killed = null;
-        if (mafiaTarget && mafiaTarget !== doctorTarget) { const t = gameState.players.find(p => p.id === mafiaTarget); if (t) { t.alive = false; killed = t; } }
-        if (maniacTarget && maniacTarget !== doctorTarget && maniacTarget !== mafiaTarget) { const t = gameState.players.find(p => p.id === maniacTarget); if (t && t.alive) { t.alive = false; killed = t; } }
-        if (killed) addChatMessage('Ведущий', `Ночью убит ${killed.name}.`); else addChatMessage('Ведущий', 'Ночь прошла без убийств.');
+        let killed = [];
+        if (mafiaTarget && mafiaTarget !== doctorTarget) killed.push(mafiaTarget);
+        if (maniacTarget && maniacTarget !== doctorTarget && maniacTarget !== mafiaTarget) killed.push(maniacTarget);
+        killed = [...new Set(killed)];
+        killed.forEach(id => {
+            const victim = gameState.players.find(p => p.id === id);
+            if (victim) { victim.alive = false; addChatMessage('Ведущий', `Ночью убит ${victim.name}.`); }
+        });
+        if (!killed.length) addChatMessage('Ведущий', 'Ночь прошла без убийств.');
         gameState.nightActions = { mafiaTarget: null, maniacTarget: null, doctorTarget: null, commissarCheck: null };
-        gameState.phase = 'day'; currentPhase = 'day';
-        startPhaseTimer(getDurationForPhase('day'));
-        updateAvatarGrid(); updateVoiceChatAccess(); checkGameEnd();
     }
     function resolveVoting() {
         const votes = gameState.votes;
@@ -415,10 +515,24 @@
         for (const targetId of Object.values(votes)) candidates[targetId] = (candidates[targetId] || 0) + 1;
         let maxVotes = 0, eliminatedId = null;
         for (const [id, c] of Object.entries(candidates)) if (c > maxVotes) { maxVotes = c; eliminatedId = id; }
-        if (eliminatedId) { const eliminated = gameState.players.find(p => p.id === eliminatedId); if (eliminated) { eliminated.alive = false; addChatMessage('Ведущий', `Жители изгнали ${eliminated.name}.`); } }
-        else addChatMessage('Ведущий', 'Никто не изгнан.');
+        if (eliminatedId) {
+            const eliminated = gameState.players.find(p => p.id === eliminatedId);
+            if (eliminated) {
+                eliminated.alive = false;
+                addChatMessage('Ведущий', `Жители изгнали ${eliminated.name}.`);
+            }
+        } else addChatMessage('Ведущий', 'Никто не изгнан.');
         gameState.votes = {};
-        if (!checkGameEnd()) { gameState.phase = 'night_mafia'; currentPhase = 'night_mafia'; startPhaseTimer(getDurationForPhase('night_mafia')); updateAvatarGrid(); updateVoiceChatAccess(); triggerNightAction(); }
+        // после голосования проверяем конец игры, иначе переходим к ночи
+        if (!checkGameEnd()) {
+            gameState.phase = 'night_mafia';
+            currentPhase = 'night_mafia';
+            startPhaseTimer(getDurationForPhase('night_mafia'));
+            updateAvatarGrid();
+            updateVoiceChatAccess();
+            const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
+            if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay('night_mafia');
+        }
     }
     function checkGameEnd() {
         const alive = gameState.players.filter(p => p.alive);
@@ -443,40 +557,6 @@
         alert(`Игра окончена! Победила ${winner === 'evil' ? 'МАФИЯ и МАНЬЯК' : 'МИРНЫЕ ЖИТЕЛИ'}.`);
         showScreen('menuScreen');
     }
-    function triggerNightAction() {
-        const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
-        if (!currentPlayer || !currentPlayer.alive) return;
-        let actionType = null;
-        if (currentPhase === 'night_mafia' && currentPlayer.role === 'mafia') actionType = 'mafia';
-        else if (currentPhase === 'night_maniac' && currentPlayer.role === 'maniac') actionType = 'maniac';
-        else if (currentPhase === 'night_doctor' && currentPlayer.role === 'doctor') actionType = 'doctor';
-        else if (currentPhase === 'night_commissar' && currentPlayer.role === 'commissar') actionType = 'commissar';
-        if (!actionType) return;
-        const aliveOthers = gameState.players.filter(p => p.alive && p.id !== currentPlayer.id);
-        if (aliveOthers.length === 0) { nextPhase(); return; }
-        const modal = document.getElementById('actionModal');
-        let title = { mafia: 'Выберите жертву (мафия)', maniac: 'Выберите жертву (маньяк)', doctor: 'Кого лечить?', commissar: 'Кого проверить?' }[actionType];
-        document.getElementById('modalTitle').innerText = title;
-        const optionsDiv = document.getElementById('modalOptions');
-        optionsDiv.innerHTML = aliveOthers.map(p => `<div class="vote-option" data-id="${p.id}">${p.name}</div>`).join('');
-        modal.style.display = 'flex';
-        document.querySelectorAll('.vote-option').forEach(opt => {
-            opt.onclick = () => {
-                const targetId = opt.getAttribute('data-id');
-                if (actionType === 'mafia') gameState.nightActions.mafiaTarget = targetId;
-                else if (actionType === 'maniac') gameState.nightActions.maniacTarget = targetId;
-                else if (actionType === 'doctor') gameState.nightActions.doctorTarget = targetId;
-                else if (actionType === 'commissar') {
-                    const target = gameState.players.find(p => p.id === targetId);
-                    alert(`Комиссар: ${target.name} — ${target.role === 'mafia' || target.role === 'maniac' ? 'ЗЛО' : 'МИРНЫЙ'}`);
-                    addChatMessage('Система', `Вы проверили ${target.name}. Результат: ${target.role === 'mafia' || target.role === 'maniac' ? 'ЗЛО' : 'МИРНЫЙ'}`);
-                }
-                modal.style.display = 'none';
-                if (gameInterval) clearInterval(gameInterval);
-                nextPhase();
-            };
-        });
-    }
 
     // ------------------- Обновление сетки видео-аватаров -------------------
     function updateAvatarGrid() {
@@ -489,13 +569,14 @@
             const micState = p.micOn ? 'on' : 'off';
             const camState = p.camOn ? 'on' : 'off';
             const aliveClass = p.alive ? '' : 'dead';
+            const silenced = silencedPlayers.has(p.id) && currentPhase === 'day';
             const div = document.createElement('div');
             div.className = 'avatar-item';
             div.innerHTML = `
                 <div class="video-circle ${aliveClass}" id="video-${p.id}">
                     <video autoplay muted playsinline style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1);"></video>
                 </div>
-                <div class="avatar-name">${p.name}</div>
+                <div class="avatar-name">${p.name} ${silenced ? '🔇' : ''}</div>
                 <div class="avatar-status">
                     <span class="mic-indicator ${micState}">${micState === 'on' ? '🎤' : '🔇'}</span>
                     <span class="cam-indicator ${camState}">${camState === 'on' ? '📹' : '📷'}</span>
@@ -512,6 +593,35 @@
                 videoEl.srcObject = fakeVideoStreams.get(p.id);
             }
         });
+        // голосование: клик по аватару
+        if (currentPhase === 'voting') {
+            document.querySelectorAll('.avatar-item').forEach(item => {
+                const name = item.querySelector('.avatar-name').innerText.split(' ')[0];
+                if (name !== currentUser.nickname) {
+                    const square = item.querySelector('.video-circle');
+                    if (square) {
+                        square.style.cursor = 'pointer';
+                        square.onclick = () => {
+                            if (gameState.votes[currentUser.id]) {
+                                showMessage('Вы уже проголосовали');
+                                return;
+                            }
+                            const target = gameState.players.find(p => p.name === name);
+                            if (target && target.alive) {
+                                gameState.votes[currentUser.id] = target.id;
+                                addChatMessage('Система', `Вы проголосовали за ${target.name}`);
+                                updateAvatarGrid();
+                            }
+                        };
+                    }
+                } else {
+                    const square = item.querySelector('.video-circle');
+                    if (square) square.style.cursor = 'default';
+                }
+            });
+        } else {
+            document.querySelectorAll('.video-circle').forEach(sq => { sq.onclick = null; sq.style.cursor = 'default'; });
+        }
     }
 
     function addChatMessage(sender, text, className = '') {
@@ -545,7 +655,7 @@
         }
     }
 
-    // ------------------- Лобби с настройками -------------------
+    // ------------------- Лобби -------------------
     function showGameSettings() {
         document.getElementById('botCountSlider').value = gameSettings.botCount;
         document.getElementById('botCountValue').innerText = gameSettings.botCount;
@@ -605,16 +715,20 @@
             const players = assignRolesFromSettings(allPlayers);
             gameState = {
                 players: players,
-                phase: 'night_mafia',
+                phase: 'day',
                 day: 1,
                 nightActions: { mafiaTarget: null, maniacTarget: null, doctorTarget: null, commissarCheck: null },
                 votes: {}
             };
-            currentPhase = 'night_mafia';
+            currentPhase = 'day';
             skipVotes.clear();
             updateSkipVoteInfo();
             updateAvatarGrid();
             addChatMessage('🌆 Городские новости', cityEvents[Math.floor(Math.random() * cityEvents.length)], 'event-message');
+            const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
+            if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay('day');
+            startPhaseTimer(getDurationForPhase('day'));
+            updateVoiceChatAccess();
             const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
             if (currentPlayer) {
                 let roleMsg = '', roleIcon = '';
@@ -623,17 +737,11 @@
                     case 'maniac': roleMsg = 'Вы — МАНЬЯК. Убиваете одну жертву каждую ночь.'; roleIcon = '🔪🔪'; break;
                     case 'doctor': roleMsg = 'Вы — ДОКТОР. Лечите игроков от убийства.'; roleIcon = '💊'; break;
                     case 'commissar': roleMsg = 'Вы — КОМИССАР. Проверяйте игроков ночью.'; roleIcon = '🔍'; break;
-                    case 'beauty': roleMsg = 'Вы — КРАСОТКА. Один раз можете отклонить голосование против себя.'; roleIcon = '💃'; break;
+                    case 'beauty': roleMsg = 'Вы — КРАСОТКА. Ночью заглушаете игрока на следующий день.'; roleIcon = '💃'; break;
                     case 'patrol': roleMsg = 'Вы — ПАТРУЛЬНЫЙ. Проверяете, мафия ли игрок.'; roleIcon = '👮'; break;
                     default: roleMsg = 'Вы — МИРНЫЙ ЖИТЕЛЬ.'; roleIcon = '👤';
                 }
-                showRoleModal(roleIcon, roleMsg, () => {
-                    startPhaseTimer(getDurationForPhase(currentPhase));
-                    updateVoiceChatAccess();
-                });
-            } else {
-                startPhaseTimer(getDurationForPhase(currentPhase));
-                updateVoiceChatAccess();
+                showRoleModal(roleIcon, roleMsg, () => {});
             }
         });
     }
@@ -658,7 +766,6 @@
         await initVK();
         await loadProfile();
         showScreen('menuScreen');
-        // Обработчики
         document.getElementById('createGameBtn').onclick = showGameSettings;
         document.getElementById('confirmSettingsBtn').onclick = createLobbyFromSettings;
         document.getElementById('cancelSettingsBtn').onclick = () => document.getElementById('gameSettingsModal').style.display = 'none';
