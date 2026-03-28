@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Мафия Online — Админ панель</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif; background: linear-gradient(135deg, #0b1120 0%, #1e2a3a 100%); min-height: 100vh; color: #e2e8f0; }
+        .screen { display: none; padding: 16px; min-height: 100vh; position: relative; }
+        .active { display: block; }
+        .container { max-width: 800px; margin: 0 auto; background: rgba(15, 25, 35, 0.9); backdrop-filter: blur(10px); border-radius: 32px; padding: 24px; box-shadow: 0 20px 35px rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .btn { background: linear-gradient(135deg, #2d3e50, #1e2a3a); border: none; padding: 12px 20px; border-radius: 60px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: 0.2s; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .btn-warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-success { background: linear-gradient(135deg, #10b981, #059669); }
+        .profile-header { display: flex; gap: 16px; background: rgba(0, 0, 0, 0.5); border-radius: 28px; padding: 16px; margin-bottom: 24px; align-items: center; flex-wrap: wrap; }
+        .avatar { width: 70px; height: 70px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; background-size: cover; background-position: center; flex-shrink: 0; }
+        .stats { flex: 1; text-align: right; }
+        .level-bar { background: #334155; border-radius: 12px; height: 8px; overflow: hidden; margin: 8px 0; }
+        .level-progress { background: linear-gradient(90deg, #facc15, #ef4444); width: 0%; height: 100%; transition: width 0.3s ease; }
+        .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; margin: 20px 0; }
+        .player-card { background: rgba(0, 0, 0, 0.5); border-radius: 20px; padding: 12px; text-align: center; transition: 0.2s; border: 1px solid rgba(255, 255, 255, 0.1); position: relative; }
+        .player-card.host { border-color: #fbbf24; background: rgba(251, 191, 36, 0.2); }
+        .player-card.ready { border-color: #10b981; background: rgba(16, 185, 129, 0.2); }
+        .game-phase { text-align: center; font-size: 1.5rem; font-weight: bold; margin: 16px 0; background: #1e293b; border-radius: 60px; padding: 12px; }
+        .timer { font-size: 3rem; font-weight: bold; text-align: center; font-family: monospace; margin: 16px 0; background: #00000066; border-radius: 60px; padding: 8px; animation: pulse 1s infinite; }
+        .chat-box { background: #0f1724; border-radius: 24px; padding: 12px; max-height: 200px; overflow-y: auto; margin-top: 20px; }
+        .message { margin-bottom: 8px; font-size: 0.9rem; border-bottom: 1px solid #334155; padding: 6px; }
+        .chat-input { display: flex; gap: 10px; margin-top: 12px; }
+        .chat-input input { flex: 1; background: #1e293b; border: none; padding: 12px; border-radius: 40px; color: white; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .modal-card { background: #1e293b; border-radius: 32px; padding: 24px; max-width: 90%; width: 420px; animation: fadeIn 0.2s; max-height: 80vh; overflow-y: auto; }
+        .vote-options { display: grid; gap: 12px; margin: 20px 0; }
+        .vote-option { background: #0f1724; padding: 12px; border-radius: 60px; text-align: center; cursor: pointer; transition: 0.1s; }
+        .avatar-grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin: 20px 0; }
+        .avatar-item { width: 100px; text-align: center; position: relative; }
+        .video-circle { width: 90px; height: 90px; background: #000; border-radius: 50%; margin: 0 auto 8px; border: 3px solid #4a5568; overflow: hidden; position: relative; }
+        .video-circle video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        .video-circle.dead { filter: grayscale(1); opacity: 0.6; }
+        .avatar-name { font-size: 0.8rem; font-weight: bold; word-break: break-word; }
+        .avatar-status { font-size: 0.7rem; margin-top: 4px; display: flex; justify-content: center; gap: 8px; }
+        .mic-indicator, .cam-indicator { display: inline-block; width: 24px; text-align: center; }
+        .mic-indicator.on, .cam-indicator.on { color: #10b981; }
+        .mic-indicator.off, .cam-indicator.off { color: #ef4444; }
+        .skip-vote-info { font-size: 0.75rem; background: #334155; border-radius: 20px; padding: 4px 8px; display: inline-block; margin-left: 8px; }
+        .video-controls { display: flex; gap: 8px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+        .avatar-option { display: inline-block; font-size: 2rem; margin: 8px; cursor: pointer; padding: 8px; border-radius: 50%; background: #2d3748; width: 60px; text-align: center; }
+        .avatar-option.selected { background: #667eea; transform: scale(1.1); }
+        .settings-row { margin: 12px 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .duration-group { display: flex; gap: 12px; align-items: center; }
+        input[type="number"], select { background: #0f1724; border: none; padding: 8px; border-radius: 20px; color: white; text-align: center; }
+        .role-checkbox { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+        .role-checkbox input { width: 20px; height: 20px; cursor: pointer; }
+        .event-message { background: #f59e0b20; border-left: 4px solid #f59e0b; padding: 8px; margin: 8px 0; border-radius: 12px; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @media (max-width: 640px) { .container { padding: 16px; } .video-circle { width: 70px; height: 70px; } .avatar-name { font-size: 0.7rem; } }
+    </style>
+    <script src="https://vk.com/js/api/openapi.js?169"></script>
+</head>
+<body>
+<div id="statusBar" style="position:fixed; top:12px; right:12px; background:#000000aa; border-radius:20px; padding:6px 12px; font-size:12px; z-index:1000;"></div>
+
+<!-- ГЛАВНОЕ МЕНЮ -->
+<div id="menuScreen" class="screen active">
+    <div class="container">
+        <div style="text-align:center; margin-bottom:24px;"><div style="font-size:4rem;">🎭</div><h1 style="font-size:2rem;">МАФИЯ ONLINE</h1><p>Психологическая игра с видеочат-аватарами</p></div>
+        <div id="profilePreview" class="profile-header" style="display:none;">
+            <div class="avatar" id="menuAvatar">😊</div>
+            <div style="flex:1"><strong id="menuNickname"></strong><div class="level-bar"><div class="level-progress" id="menuProgress"></div></div><span id="menuLevel"></span></div>
+            <div class="stats"><span id="menuWins">0</span>🏆 <span id="menuGames">0</span>🎮</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:16px; margin-top:20px;">
+            <button class="btn btn-primary" id="createGameBtn">🎲 Создать игру (админ)</button>
+            <button class="btn" id="joinGameBtn">🔗 Присоединиться</button>
+            <button class="btn" id="profileBtn">👤 Мой профиль</button>
+            <button class="btn" id="vkAuthBtn">🔑 Войти через VK</button>
+        </div>
+        <div style="margin-top:24px; display:flex; justify-content:center; gap:8px;">
+            <button class="btn" id="statsBtn">📊 Статистика</button>
+            <button class="btn" id="achievementsBtn">🏆 Достижения</button>
+        </div>
+    </div>
+</div>
+
+<!-- ПРОФИЛЬ -->
+<div id="profileScreen" class="screen">
+    <div class="container">
+        <button class="btn" id="backToMenu">← Назад</button>
+        <h2 style="margin:16px 0;">Редактирование профиля</h2>
+        <input type="text" id="profileNick" placeholder="Ваш ник" maxlength="20" style="width:100%; padding:12px; border-radius:60px; background:#0f1724; border:none; color:white; margin-bottom:16px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:20px;">
+            <div class="avatar-option" data-avatar="😊">😊</div><div class="avatar-option" data-avatar="😎">😎</div><div class="avatar-option" data-avatar="🤠">🤠</div>
+            <div class="avatar-option" data-avatar="🧐">🧐</div><div class="avatar-option" data-avatar="😈">😈</div><div class="avatar-option" data-avatar="👻">👻</div>
+        </div>
+        <select id="difficultySelect" style="width:100%; padding:12px; border-radius:60px; background:#0f1724; color:white;">
+            <option value="easy">Легкие боты</option><option value="medium" selected>Средние</option><option value="hard">Сложные</option>
+        </select>
+        <button class="btn btn-primary" id="saveProfileBtn" style="margin-top:20px; width:100%;">💾 Сохранить</button>
+        <button class="btn" id="vkBindBtn" style="margin-top:10px; width:100%;">🔗 Привязать VK</button>
+    </div>
+</div>
+
+<!-- НАСТРОЙКИ ИГРЫ (АДМИН ПАНЕЛЬ) -->
+<div id="gameSettingsModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+        <h3>Настройки игры (админ)</h3>
+        <div class="settings-row">
+            <label>Количество ботов:</label>
+            <div><span id="botCountValue">3</span> <input type="range" id="botCountSlider" min="0" max="8" value="3" step="1" style="width:140px;"></div>
+        </div>
+        <div class="settings-row">
+            <label>Сложность ботов:</label>
+            <select id="botDifficultySelect">
+                <option value="easy">Легко</option><option value="medium" selected>Средне</option><option value="hard">Сложно</option>
+            </select>
+        </div>
+        <div class="settings-row">
+            <label>Длительность фаз:</label>
+            <div class="duration-group">
+                <input type="number" id="dayDuration" value="45" style="width:70px;"> <span>день</span>
+                <input type="number" id="nightDuration" value="25" style="width:70px;"> <span>ночь</span>
+                <input type="number" id="voteDuration" value="30" style="width:70px;"> <span>голосование</span>
+            </div>
+        </div>
+        <div style="margin: 16px 0;"><strong>🎭 Выбор ролей (минимум 1 мафия):</strong></div>
+        <div class="role-checkbox"><input type="checkbox" id="roleMafia" checked> <label for="roleMafia">Мафия (обязательно)</label></div>
+        <div class="role-checkbox"><input type="checkbox" id="roleManiac"> <label for="roleManiac">Маньяк</label></div>
+        <div class="role-checkbox"><input type="checkbox" id="roleDoctor"> <label for="roleDoctor">Доктор</label></div>
+        <div class="role-checkbox"><input type="checkbox" id="roleCommissar"> <label for="roleCommissar">Комиссар</label></div>
+        <div class="role-checkbox"><input type="checkbox" id="roleBeauty"> <label for="roleBeauty">Красотка (один раз может отклонить голосование против себя)</label></div>
+        <div class="role-checkbox"><input type="checkbox" id="rolePatrol"> <label for="rolePatrol">Патрульный (проверяет, мафия ли)</label></div>
+        <div class="settings-row" style="margin-top: 16px;">
+            <label>Количество мафии:</label>
+            <input type="number" id="mafiaCount" min="1" max="5" value="1" style="width:70px;">
+        </div>
+        <div style="display:flex; gap:12px; margin-top:20px;">
+            <button class="btn btn-primary" id="confirmSettingsBtn">Создать лобби</button>
+            <button class="btn" id="cancelSettingsBtn">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- ЛОББИ -->
+<div id="lobbyScreen" class="screen">
+    <div class="container">
+        <button class="btn" id="lobbyBackBtn">← Выйти</button>
+        <h3>Лобби: код <span id="roomCode">----</span></h3>
+        <div class="players-grid" id="lobbyPlayersList"></div>
+        <button class="btn btn-primary" id="readyBtn" style="width:100%;">✅ Готов</button>
+        <button class="btn btn-success" id="startGameBtn" style="width:100%; margin-top:8px;" disabled>🚀 Начать игру (админ)</button>
+        <button class="btn" id="inviteVkBtn" style="margin-top:8px;">👥 Пригласить друзей</button>
+    </div>
+</div>
+
+<!-- ИГРА -->
+<div id="gameScreen" class="screen">
+    <div class="container">
+        <div class="game-phase" id="phaseName">Дневное обсуждение</div>
+        <div class="timer" id="timerValue">00</div>
+        <div class="video-controls">
+            <button class="btn" id="toggleMicBtn">🎤 Микрофон (вкл)</button>
+            <button class="btn" id="toggleCamBtn">📹 Камера (вкл)</button>
+            <span id="voiceStatus" class="voice-status">🔊 Дневной чат</span>
+            <button class="btn btn-warning" id="skipPhaseBtn">⏭️ Пропустить фазу</button>
+            <span id="skipVoteInfo" class="skip-vote-info">0/0 голосов за пропуск</span>
+        </div>
+        <div class="avatar-grid" id="avatarGrid"></div>
+        <div class="chat-box" id="chatMessages"></div>
+        <div class="chat-input">
+            <input type="text" id="chatInput" placeholder="Написать в общий чат...">
+            <button class="btn" id="sendChatBtn">➤</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для ночных действий -->
+<div id="actionModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+        <h3 id="modalTitle">Выбор</h3>
+        <div id="modalOptions" class="vote-options"></div>
+        <button class="btn" id="modalCancelBtn">Отмена</button>
+    </div>
+</div>
+
+<script>
+    // ------------------- Глобальные переменные -------------------
+    let currentUser = null;
+    let gameState = null;
+    let lobbyPlayers = [];
+    let isHost = false;
+    let gameInterval = null;
+    let currentPhase = null;
+    let currentTimer = 0;
+    let localStream = null;
+    let isMicEnabled = true;
+    let isCamEnabled = true;
+    let vkBridgeReady = false;
+    let gameSettings = { day: 45, night: 25, vote: 30, botCount: 3, botDifficulty: 'medium', mafiaCount: 1, roles: { mafia: true, maniac: false, doctor: false, commissar: false, beauty: false, patrol: false } };
+    let skipVotes = new Set();
+    let fakeVideoStreams = new Map();
+
+    const cityEvents = [
+        "🌧️ В городе начался ливень. Обсуждение становится тише.",
+        "⚡ Внезапно отключилось электричество. Все в темноте.",
+        "🚨 В центре города сработала сигнализация.",
+        "📰 Городская газета опубликовала странную заметку.",
+        "🎵 На площади заиграла уличная музыка.",
+        "🐈 По городу разбежались кошки. Считается, что это к беде.",
+        "💔 Местная пара разругалась на весь квартал.",
+        "🍂 Листья начали падать раньше срока. Горожане шепчутся о проклятии.",
+        "🚔 Полицейский патруль задержал подозрительного типа.",
+        "📢 Неизвестный разбрасывает листовки с угрозами."
+    ];
+
+    // ------------------- VK Bridge -------------------
+    async function initVK() {
+        return new Promise((resolve) => {
+            if (!window.VKWebAppInit) {
+                document.getElementById('statusBar').innerText = '💻 Локальный режим';
+                resolve(false);
+                return;
+            }
+            VKWebAppInit().then(() => { vkBridgeReady = true; document.getElementById('statusBar').innerText = '🟢 VK Mini App'; resolve(true); })
+                .catch(() => { document.getElementById('statusBar').innerText = '⚠️ Ошибка VK'; resolve(false); });
+        });
+    }
+
+    async function getVKUser() {
+        if (!vkBridgeReady) return null;
+        return new Promise((resolve) => {
+            VKWebAppGetUserInfo((data) => { if (data && data.id) resolve({ id: data.id, first_name: data.first_name, last_name: data.last_name, photo: data.photo_200 }); else resolve(null); });
+        });
+    }
+
+    // ------------------- Профиль -------------------
+    async function loadProfile() {
+        const saved = localStorage.getItem('mafiaUser');
+        if (saved) currentUser = JSON.parse(saved);
+        if (vkBridgeReady && !currentUser?.vk_id) {
+            const vkUser = await getVKUser();
+            if (vkUser) {
+                currentUser = {
+                    nickname: `${vkUser.first_name} ${vkUser.last_name}`,
+                    avatar: '😊',
+                    avatarUrl: vkUser.photo,
+                    level: 1, xp: 0, wins: 0, games: 0, difficulty: 'medium', vk_id: vkUser.id
+                };
+                await saveProfile();
+            }
+        }
+        if (!currentUser) currentUser = { nickname: 'Гость', avatar: '😊', level: 1, xp: 0, wins: 0, games: 0, difficulty: 'medium' };
+        updateProfileUI();
+    }
+    async function saveProfile() { localStorage.setItem('mafiaUser', JSON.stringify(currentUser)); }
+    function updateProfileUI() {
+        if (!currentUser) return;
+        document.getElementById('menuNickname').innerText = currentUser.nickname;
+        const avatarDiv = document.getElementById('menuAvatar');
+        if (currentUser.avatarUrl) { avatarDiv.style.backgroundImage = `url('${currentUser.avatarUrl}')`; avatarDiv.style.backgroundSize = 'cover'; avatarDiv.innerText = ''; }
+        else avatarDiv.innerText = currentUser.avatar;
+        const progress = (currentUser.xp / (currentUser.level * 100)) * 100;
+        document.getElementById('menuProgress').style.width = `${progress}%`;
+        document.getElementById('menuWins').innerText = currentUser.wins;
+        document.getElementById('menuGames').innerText = currentUser.games;
+        document.getElementById('profilePreview').style.display = 'flex';
+    }
+
+    // ------------------- Медиа (реальная камера и микрофон) -------------------
+    async function initMedia() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            const audioTracks = localStream.getAudioTracks();
+            if (audioTracks.length) audioTracks[0].enabled = isMicEnabled;
+            const videoTracks = localStream.getVideoTracks();
+            if (videoTracks.length) videoTracks[0].enabled = isCamEnabled;
+            updateMediaUI();
+            updateAvatarGrid();
+        } catch (e) { showMessage("Не удалось получить доступ к камере/микрофону", true); }
+    }
+    function updateMediaUI() {
+        document.getElementById('toggleMicBtn').innerHTML = isMicEnabled ? '🎤 Микрофон (вкл)' : '🔇 Микрофон (выкл)';
+        document.getElementById('toggleCamBtn').innerHTML = isCamEnabled ? '📹 Камера (вкл)' : '📷 Камера (выкл)';
+        if (gameState) {
+            const p = gameState.players.find(p => p.name === currentUser.nickname);
+            if (p) { p.micOn = isMicEnabled; p.camOn = isCamEnabled; updateAvatarGrid(); }
+        }
+    }
+    function toggleMicrophone() {
+        if (!localStream) return;
+        isMicEnabled = !isMicEnabled;
+        localStream.getAudioTracks().forEach(t => t.enabled = isMicEnabled);
+        if (gameState) { const p = gameState.players.find(p => p.name === currentUser.nickname); if (p) p.micOn = isMicEnabled; updateAvatarGrid(); }
+        updateMediaUI();
+        showMessage(isMicEnabled ? 'Микрофон включён' : 'Микрофон выключен');
+    }
+    function toggleCamera() {
+        if (!localStream) return;
+        isCamEnabled = !isCamEnabled;
+        localStream.getVideoTracks().forEach(t => t.enabled = isCamEnabled);
+        if (gameState) { const p = gameState.players.find(p => p.name === currentUser.nickname); if (p) p.camOn = isCamEnabled; updateAvatarGrid(); }
+        updateMediaUI();
+        showMessage(isCamEnabled ? 'Камера включена' : 'Камера выключена');
+    }
+    function updateVoiceChatAccess() {
+        if (!localStream) return;
+        const isDay = currentPhase === 'day' || currentPhase === 'voting';
+        localStream.getAudioTracks().forEach(t => t.enabled = isDay && isMicEnabled);
+        const statusSpan = document.getElementById('voiceStatus');
+        statusSpan.innerHTML = isDay ? '🔊 Дневной чат (активен)' : '🔇 Ночная фаза (микрофон выключен)';
+        statusSpan.style.color = isDay ? '#10b981' : '#f59e0b';
+    }
+
+    // ------------------- Создание искусственного видео для ботов -------------------
+    function createFakeVideoStream() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 160;
+        canvas.height = 160;
+        const ctx = canvas.getContext('2d');
+        let hue = 0;
+        const stream = canvas.captureStream(30);
+        const animate = () => {
+            hue = (hue + 2) % 360;
+            ctx.fillStyle = `hsl(${hue}, 70%, 20%)`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.arc(canvas.width/2, canvas.height/2, 50, 0, Math.PI*2);
+            ctx.fillStyle = `hsl(${hue}, 80%, 50%)`;
+            ctx.fill();
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.fillText('🤖', canvas.width/2-15, canvas.height/2+10);
+            requestAnimationFrame(animate);
+        };
+        animate();
+        return stream;
+    }
+
+    // ------------------- Распределение ролей на основе настроек админа -------------------
+    function assignRolesFromSettings(players) {
+        const roles = [];
+        // мафия
+        for (let i = 0; i < gameSettings.mafiaCount; i++) roles.push('mafia');
+        if (gameSettings.roles.maniac) roles.push('maniac');
+        if (gameSettings.roles.doctor) roles.push('doctor');
+        if (gameSettings.roles.commissar) roles.push('commissar');
+        if (gameSettings.roles.beauty) roles.push('beauty');
+        if (gameSettings.roles.patrol) roles.push('patrol');
+        // остальные мирные
+        while (roles.length < players.length) roles.push('civilian');
+        // перемешиваем
+        for (let i = roles.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [roles[i], roles[j]] = [roles[j], roles[i]];
+        }
+        players.forEach((p, idx) => {
+            p.role = roles[idx];
+            p.alive = true;
+            p.id = p.id || `p${Date.now()}_${idx}`;
+            p.camOn = true; p.micOn = true;
+            if (p.name === currentUser.nickname) { p.camOn = isCamEnabled; p.micOn = isMicEnabled; }
+        });
+        return players;
+    }
+
+    // ------------------- Игровая логика -------------------
+    const PHASES = ['night_mafia', 'night_maniac', 'night_doctor', 'night_commissar', 'day', 'voting'];
+    function getDurationForPhase(phase) {
+        if (phase === 'day') return gameSettings.day;
+        if (phase === 'voting') return gameSettings.vote;
+        return gameSettings.night;
+    }
+    function showRoleModal(icon, text, onClose) {
+        const modal = document.createElement('div'); modal.className = 'modal-overlay';
+        modal.innerHTML = `<div class="modal-card" style="text-align:center;"><div style="font-size:4rem;">${icon}</div><h3>Ваша роль</h3><p style="margin:16px 0;">${text}</p><button class="btn btn-primary" id="closeRoleModal">Понятно, начинаем!</button></div>`;
+        document.body.appendChild(modal);
+        document.getElementById('closeRoleModal').onclick = () => { modal.remove(); if (onClose) onClose(); };
+    }
+    function startPhaseTimer(seconds) {
+        if (gameInterval) clearInterval(gameInterval);
+        currentTimer = seconds;
+        document.getElementById('timerValue').innerText = currentTimer;
+        gameInterval = setInterval(() => { currentTimer--; document.getElementById('timerValue').innerText = currentTimer; if (currentTimer <= 0) nextPhase(); }, 1000);
+    }
+    function nextPhase() {
+        if (!gameState) return;
+        let idx = PHASES.indexOf(gameState.phase);
+        if (idx === -1) idx = 0;
+        if (gameState.phase === 'night_commissar') { resolveNight(); return; }
+        if (gameState.phase === 'voting') { resolveVoting(); return; }
+        idx++; if (idx >= PHASES.length) { gameState.phase = 'night_mafia'; gameState.day++; idx = 0; } else gameState.phase = PHASES[idx];
+        currentPhase = gameState.phase;
+        startPhaseTimer(getDurationForPhase(currentPhase));
+        skipVotes.clear(); updateSkipVoteInfo();
+        updateAvatarGrid();
+        updateVoiceChatAccess();
+        if (currentPhase.includes('night')) triggerNightAction();
+        else if (currentPhase === 'day') addChatMessage('🌆 Городские новости', cityEvents[Math.floor(Math.random() * cityEvents.length)], 'event-message');
+    }
+    function resolveNight() {
+        const { mafiaTarget, maniacTarget, doctorTarget } = gameState.nightActions;
+        let killed = null;
+        if (mafiaTarget && mafiaTarget !== doctorTarget) { const t = gameState.players.find(p => p.id === mafiaTarget); if (t) { t.alive = false; killed = t; } }
+        if (maniacTarget && maniacTarget !== doctorTarget && maniacTarget !== mafiaTarget) { const t = gameState.players.find(p => p.id === maniacTarget); if (t && t.alive) { t.alive = false; killed = t; } }
+        if (killed) addChatMessage('Ведущий', `Ночью убит ${killed.name}.`); else addChatMessage('Ведущий', 'Ночь прошла без убийств.');
+        gameState.nightActions = { mafiaTarget: null, maniacTarget: null, doctorTarget: null, commissarCheck: null };
+        gameState.phase = 'day'; currentPhase = 'day';
+        startPhaseTimer(getDurationForPhase('day'));
+        updateAvatarGrid(); updateVoiceChatAccess(); checkGameEnd();
+    }
+    function resolveVoting() {
+        const votes = gameState.votes;
+        const candidates = {};
+        for (const targetId of Object.values(votes)) candidates[targetId] = (candidates[targetId] || 0) + 1;
+        let maxVotes = 0, eliminatedId = null;
+        for (const [id, c] of Object.entries(candidates)) if (c > maxVotes) { maxVotes = c; eliminatedId = id; }
+        if (eliminatedId) { const eliminated = gameState.players.find(p => p.id === eliminatedId); if (eliminated) { eliminated.alive = false; addChatMessage('Ведущий', `Жители изгнали ${eliminated.name}.`); } }
+        else addChatMessage('Ведущий', 'Никто не изгнан.');
+        gameState.votes = {};
+        if (!checkGameEnd()) { gameState.phase = 'night_mafia'; currentPhase = 'night_mafia'; startPhaseTimer(getDurationForPhase('night_mafia')); updateAvatarGrid(); updateVoiceChatAccess(); triggerNightAction(); }
+    }
+    function checkGameEnd() {
+        const alive = gameState.players.filter(p => p.alive);
+        const mafia = alive.filter(p => p.role === 'mafia').length;
+        const maniac = alive.filter(p => p.role === 'maniac').length;
+        const evil = mafia + maniac;
+        const civ = alive.length - evil;
+        if (evil === 0) { addChatMessage('Ведущий', '🎉 ПОБЕДА МИРНЫХ ЖИТЕЛЕЙ! 🎉'); endGame('civilians'); return true; }
+        if (evil >= civ) { addChatMessage('Ведущий', '🔪 ПОБЕДА ЗЛА! 🔪'); endGame('evil'); return true; }
+        return false;
+    }
+    async function endGame(winner) {
+        if (gameInterval) clearInterval(gameInterval);
+        const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
+        if (currentPlayer && currentPlayer.alive) {
+            const isWinner = (winner === 'evil' && (currentPlayer.role === 'mafia' || currentPlayer.role === 'maniac')) ||
+                             (winner === 'civilians' && !['mafia', 'maniac'].includes(currentPlayer.role));
+            if (isWinner) { currentUser.wins++; currentUser.xp += 50; currentUser.games++; while (currentUser.xp >= currentUser.level * 100) { currentUser.level++; currentUser.xp -= currentUser.level * 100; } }
+            else { currentUser.games++; currentUser.xp += 20; }
+            await saveProfile(); updateProfileUI();
+        }
+        alert(`Игра окончена! Победила ${winner === 'evil' ? 'МАФИЯ и МАНЬЯК' : 'МИРНЫЕ ЖИТЕЛИ'}.`);
+        showScreen('menuScreen');
+    }
+    function triggerNightAction() {
+        const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
+        if (!currentPlayer || !currentPlayer.alive) return;
+        let actionType = null;
+        if (currentPhase === 'night_mafia' && currentPlayer.role === 'mafia') actionType = 'mafia';
+        else if (currentPhase === 'night_maniac' && currentPlayer.role === 'maniac') actionType = 'maniac';
+        else if (currentPhase === 'night_doctor' && currentPlayer.role === 'doctor') actionType = 'doctor';
+        else if (currentPhase === 'night_commissar' && currentPlayer.role === 'commissar') actionType = 'commissar';
+        if (!actionType) return;
+        const aliveOthers = gameState.players.filter(p => p.alive && p.id !== currentPlayer.id);
+        if (aliveOthers.length === 0) { nextPhase(); return; }
+        const modal = document.getElementById('actionModal');
+        let title = { mafia: 'Выберите жертву (мафия)', maniac: 'Выберите жертву (маньяк)', doctor: 'Кого лечить?', commissar: 'Кого проверить?' }[actionType];
+        document.getElementById('modalTitle').innerText = title;
+        const optionsDiv = document.getElementById('modalOptions');
+        optionsDiv.innerHTML = aliveOthers.map(p => `<div class="vote-option" data-id="${p.id}">${p.name}</div>`).join('');
+        modal.style.display = 'flex';
+        document.querySelectorAll('.vote-option').forEach(opt => {
+            opt.onclick = () => {
+                const targetId = opt.getAttribute('data-id');
+                if (actionType === 'mafia') gameState.nightActions.mafiaTarget = targetId;
+                else if (actionType === 'maniac') gameState.nightActions.maniacTarget = targetId;
+                else if (actionType === 'doctor') gameState.nightActions.doctorTarget = targetId;
+                else if (actionType === 'commissar') {
+                    const target = gameState.players.find(p => p.id === targetId);
+                    alert(`Комиссар: ${target.name} — ${target.role === 'mafia' || target.role === 'maniac' ? 'ЗЛО' : 'МИРНЫЙ'}`);
+                    addChatMessage('Система', `Вы проверили ${target.name}. Результат: ${target.role === 'mafia' || target.role === 'maniac' ? 'ЗЛО' : 'МИРНЫЙ'}`);
+                }
+                modal.style.display = 'none';
+                if (gameInterval) clearInterval(gameInterval);
+                nextPhase();
+            };
+        });
+    }
+
+    // ------------------- Обновление сетки видео-аватаров -------------------
+    function updateAvatarGrid() {
+        if (!gameState) return;
+        const container = document.getElementById('avatarGrid');
+        if (!container) return;
+        container.innerHTML = '';
+        gameState.players.forEach(p => {
+            const isCurrent = p.name === currentUser.nickname;
+            const micState = p.micOn ? 'on' : 'off';
+            const camState = p.camOn ? 'on' : 'off';
+            const aliveClass = p.alive ? '' : 'dead';
+            const div = document.createElement('div');
+            div.className = 'avatar-item';
+            div.innerHTML = `
+                <div class="video-circle ${aliveClass}" id="video-${p.id}">
+                    <video autoplay muted playsinline style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1);"></video>
+                </div>
+                <div class="avatar-name">${p.name}</div>
+                <div class="avatar-status">
+                    <span class="mic-indicator ${micState}">${micState === 'on' ? '🎤' : '🔇'}</span>
+                    <span class="cam-indicator ${camState}">${camState === 'on' ? '📹' : '📷'}</span>
+                </div>
+            `;
+            container.appendChild(div);
+            const videoEl = div.querySelector('video');
+            if (isCurrent && localStream) {
+                videoEl.srcObject = localStream;
+            } else if (!isCurrent) {
+                if (!fakeVideoStreams.has(p.id)) {
+                    fakeVideoStreams.set(p.id, createFakeVideoStream());
+                }
+                videoEl.srcObject = fakeVideoStreams.get(p.id);
+            }
+        });
+    }
+
+    function addChatMessage(sender, text, className = '') {
+        const chatDiv = document.getElementById('chatMessages');
+        const msg = document.createElement('div'); msg.className = 'message'; if (className) msg.classList.add(className);
+        msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
+        chatDiv.appendChild(msg);
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+
+    // ------------------- Пропуск фазы -------------------
+    function updateSkipVoteInfo() {
+        if (!gameState) return;
+        const alive = gameState.players.filter(p => p.alive).length;
+        const needed = Math.ceil(alive / 2);
+        document.getElementById('skipVoteInfo').innerText = `${skipVotes.size}/${needed} голосов за пропуск`;
+    }
+    function trySkipPhase() {
+        if (!gameState) return;
+        const cur = gameState.players.find(p => p.name === currentUser.nickname);
+        if (!cur || !cur.alive) return showMessage('Вы не можете голосовать за пропуск');
+        if (skipVotes.has(cur.id)) return showMessage('Вы уже голосовали');
+        skipVotes.add(cur.id);
+        addChatMessage('Система', `${cur.name} проголосовал за пропуск фазы`);
+        updateSkipVoteInfo();
+        const alive = gameState.players.filter(p => p.alive).length;
+        if (skipVotes.size >= Math.ceil(alive / 2)) {
+            addChatMessage('Ведущий', 'Достаточно голосов за пропуск, фаза завершается.');
+            if (gameInterval) clearInterval(gameInterval);
+            nextPhase();
+        }
+    }
+
+    // ------------------- Лобби с настройками -------------------
+    function showGameSettings() {
+        document.getElementById('botCountSlider').value = gameSettings.botCount;
+        document.getElementById('botCountValue').innerText = gameSettings.botCount;
+        document.getElementById('botDifficultySelect').value = gameSettings.botDifficulty;
+        document.getElementById('dayDuration').value = gameSettings.day;
+        document.getElementById('nightDuration').value = gameSettings.night;
+        document.getElementById('voteDuration').value = gameSettings.vote;
+        document.getElementById('mafiaCount').value = gameSettings.mafiaCount;
+        document.getElementById('roleMafia').checked = gameSettings.roles.mafia;
+        document.getElementById('roleManiac').checked = gameSettings.roles.maniac;
+        document.getElementById('roleDoctor').checked = gameSettings.roles.doctor;
+        document.getElementById('roleCommissar').checked = gameSettings.roles.commissar;
+        document.getElementById('roleBeauty').checked = gameSettings.roles.beauty;
+        document.getElementById('rolePatrol').checked = gameSettings.roles.patrol;
+        document.getElementById('gameSettingsModal').style.display = 'flex';
+    }
+    function createLobbyFromSettings() {
+        const botCount = parseInt(document.getElementById('botCountSlider').value, 10);
+        const botDifficulty = document.getElementById('botDifficultySelect').value;
+        const day = parseInt(document.getElementById('dayDuration').value, 10);
+        const night = parseInt(document.getElementById('nightDuration').value, 10);
+        const vote = parseInt(document.getElementById('voteDuration').value, 10);
+        const mafiaCount = parseInt(document.getElementById('mafiaCount').value, 10);
+        gameSettings = {
+            botCount, botDifficulty, day, night, vote, mafiaCount,
+            roles: {
+                mafia: true,
+                maniac: document.getElementById('roleManiac').checked,
+                doctor: document.getElementById('roleDoctor').checked,
+                commissar: document.getElementById('roleCommissar').checked,
+                beauty: document.getElementById('roleBeauty').checked,
+                patrol: document.getElementById('rolePatrol').checked
+            }
+        };
+        lobbyPlayers = [];
+        lobbyPlayers.push({ id: 'p' + Date.now(), name: currentUser.nickname, avatar: currentUser.avatar || '😊', isHost: true, isReady: true, isBot: false });
+        isHost = true;
+        for (let i = 0; i < botCount; i++) {
+            lobbyPlayers.push({ id: 'bot' + Date.now() + '_' + i, name: `Бот ${i+1}`, avatar: '🤖', isHost: false, isReady: true, isBot: true, difficulty: botDifficulty });
+        }
+        updateLobbyUI();
+        showScreen('lobbyScreen');
+        document.getElementById('roomCode').innerText = Math.random().toString(36).substring(2,8).toUpperCase();
+        document.getElementById('gameSettingsModal').style.display = 'none';
+    }
+    function updateLobbyUI() {
+        const container = document.getElementById('lobbyPlayersList');
+        container.innerHTML = lobbyPlayers.map(p => `<div class="player-card ${p.isHost ? 'host' : ''} ${p.isReady ? 'ready' : ''}"><div class="avatar" style="margin:0 auto;">${p.avatar}</div><div>${p.name} ${p.isHost ? '👑' : ''}</div><div>${p.isReady ? '✅' : '⏳'}</div></div>`).join('');
+        const readyCount = lobbyPlayers.filter(p => p.isReady).length;
+        document.getElementById('startGameBtn').disabled = readyCount < 4 || !isHost;
+    }
+    function startGame() {
+        if (!isHost) return;
+        const allPlayers = [...lobbyPlayers];
+        showScreen('gameScreen');
+        initMedia().then(() => {
+            const players = assignRolesFromSettings(allPlayers);
+            gameState = {
+                players: players,
+                phase: 'night_mafia',
+                day: 1,
+                nightActions: { mafiaTarget: null, maniacTarget: null, doctorTarget: null, commissarCheck: null },
+                votes: {}
+            };
+            currentPhase = 'night_mafia';
+            skipVotes.clear();
+            updateSkipVoteInfo();
+            updateAvatarGrid();
+            addChatMessage('🌆 Городские новости', cityEvents[Math.floor(Math.random() * cityEvents.length)], 'event-message');
+            const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
+            if (currentPlayer) {
+                let roleMsg = '', roleIcon = '';
+                switch (currentPlayer.role) {
+                    case 'mafia': roleMsg = 'Вы — МАФИЯ. Убивайте мирных жителей ночью.'; roleIcon = '🔪'; break;
+                    case 'maniac': roleMsg = 'Вы — МАНЬЯК. Убиваете одну жертву каждую ночь.'; roleIcon = '🔪🔪'; break;
+                    case 'doctor': roleMsg = 'Вы — ДОКТОР. Лечите игроков от убийства.'; roleIcon = '💊'; break;
+                    case 'commissar': roleMsg = 'Вы — КОМИССАР. Проверяйте игроков ночью.'; roleIcon = '🔍'; break;
+                    case 'beauty': roleMsg = 'Вы — КРАСОТКА. Один раз можете отклонить голосование против себя.'; roleIcon = '💃'; break;
+                    case 'patrol': roleMsg = 'Вы — ПАТРУЛЬНЫЙ. Проверяете, мафия ли игрок.'; roleIcon = '👮'; break;
+                    default: roleMsg = 'Вы — МИРНЫЙ ЖИТЕЛЬ.'; roleIcon = '👤';
+                }
+                showRoleModal(roleIcon, roleMsg, () => {
+                    startPhaseTimer(getDurationForPhase(currentPhase));
+                    updateVoiceChatAccess();
+                });
+            } else {
+                startPhaseTimer(getDurationForPhase(currentPhase));
+                updateVoiceChatAccess();
+            }
+        });
+    }
+
+    // ------------------- UI -------------------
+    function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+    function showMessage(text, isError = false) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        div.style.cssText = 'position:fixed; bottom:20px; left:20px; right:20px; background:' + (isError ? '#dc2626' : '#10b981') + '; color:white; padding:12px; border-radius:40px; text-align:center; z-index:9999;';
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 2500);
+    }
+    function loadProfileDataIntoForm() {
+        document.getElementById('profileNick').value = currentUser.nickname;
+        document.getElementById('difficultySelect').value = currentUser.difficulty;
+        document.querySelectorAll('.avatar-option').forEach(el => { if (el.getAttribute('data-avatar') === currentUser.avatar) el.classList.add('selected'); else el.classList.remove('selected'); });
+    }
+
+    // ------------------- Инициализация -------------------
+    (async () => {
+        await initVK();
+        await loadProfile();
+        showScreen('menuScreen');
+        // Обработчики
+        document.getElementById('createGameBtn').onclick = showGameSettings;
+        document.getElementById('confirmSettingsBtn').onclick = createLobbyFromSettings;
+        document.getElementById('cancelSettingsBtn').onclick = () => document.getElementById('gameSettingsModal').style.display = 'none';
+        document.getElementById('joinGameBtn').onclick = () => { const code = prompt("Введите код игры:"); if(code) alert(`Подключение к игре ${code} (демо)`); };
+        document.getElementById('profileBtn').onclick = () => { loadProfileDataIntoForm(); showScreen('profileScreen'); };
+        document.getElementById('backToMenu').onclick = () => showScreen('menuScreen');
+        document.getElementById('saveProfileBtn').onclick = async () => {
+            currentUser.nickname = document.getElementById('profileNick').value.trim() || currentUser.nickname;
+            const selected = document.querySelector('.avatar-option.selected');
+            if (selected) currentUser.avatar = selected.getAttribute('data-avatar');
+            currentUser.difficulty = document.getElementById('difficultySelect').value;
+            await saveProfile(); updateProfileUI(); showMessage('Профиль сохранён'); showScreen('menuScreen');
+        };
+        document.getElementById('vkAuthBtn').onclick = async () => { if (!vkBridgeReady) alert('VK Bridge не инициализирован'); else { await getVKUser(); await loadProfile(); showMessage('VK привязан'); showScreen('menuScreen'); } };
+        document.getElementById('lobbyBackBtn').onclick = () => showScreen('menuScreen');
+        document.getElementById('readyBtn').onclick = () => { const p = lobbyPlayers.find(p => p.name === currentUser.nickname); if(p) p.isReady = true; updateLobbyUI(); };
+        document.getElementById('startGameBtn').onclick = startGame;
+        document.getElementById('inviteVkBtn').onclick = () => { if(vkBridgeReady) VKWebAppShowInviteBox(); else alert('Скопируйте ссылку и поделитесь'); };
+        document.getElementById('skipPhaseBtn').onclick = trySkipPhase;
+        document.getElementById('toggleMicBtn').onclick = toggleMicrophone;
+        document.getElementById('toggleCamBtn').onclick = toggleCamera;
+        document.getElementById('sendChatBtn').onclick = () => { const input = document.getElementById('chatInput'); const text = input.value.trim(); if(text) { addChatMessage(currentUser.nickname, text); input.value = ''; } };
+        document.getElementById('chatInput').addEventListener('keypress', e => { if(e.key === 'Enter') document.getElementById('sendChatBtn').click(); });
+        document.getElementById('statsBtn').onclick = () => alert(`Статистика:\nПобед: ${currentUser.wins}\nИгр: ${currentUser.games}\nУровень: ${currentUser.level}\nОпыт: ${currentUser.xp}/${currentUser.level*100}`);
+        document.getElementById('achievementsBtn').onclick = () => alert('Достижения будут в следующих обновлениях!');
+        document.getElementById('botCountSlider').addEventListener('input', () => document.getElementById('botCountValue').innerText = document.getElementById('botCountSlider').value);
+        document.querySelectorAll('.avatar-option').forEach(el => el.onclick = () => { document.querySelectorAll('.avatar-option').forEach(e => e.classList.remove('selected')); el.classList.add('selected'); });
+    })();
+</script>
+</body>
+</html>
