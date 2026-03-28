@@ -58,13 +58,8 @@
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         @media (max-width: 640px) { .avatar-item { width: 100px; } .video-circle { width: 90px; height: 90px; } .avatar-name { font-size: 0.7rem; } }
-        /* Шкала загрузки */
-        .loading-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0a; z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.3s;
-        }
-        .loader {
-            width: 48px; height: 48px; border: 4px solid #4a5568; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
-        }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0a; z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.3s; }
+        .loader { width: 48px; height: 48px; border: 4px solid #4a5568; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
     <script src="https://vk.com/js/api/openapi.js?169"></script>
@@ -189,15 +184,6 @@
             <input type="text" id="chatInput" placeholder="Написать в общий чат...">
             <button class="btn" id="sendChatBtn">➤</button>
         </div>
-    </div>
-</div>
-
-<!-- Модальное окно для ночных действий -->
-<div id="actionModal" class="modal-overlay" style="display:none;">
-    <div class="modal-card">
-        <h3 id="modalTitle">Выбор</h3>
-        <div id="modalOptions" class="vote-options"></div>
-        <button class="btn" id="modalCancelBtn">Отмена</button>
     </div>
 </div>
 
@@ -428,7 +414,6 @@
     // ------------------- Генератор событий без повторов -------------------
     function getRandomCityEvent() {
         if (!gameState.remainingEvents || gameState.remainingEvents.length === 0) {
-            // если все события использованы, сбрасываем массив (но в рамках одной игры могут быть повторы только после исчерпания)
             gameState.remainingEvents = [...allCityEvents];
         }
         const idx = Math.floor(Math.random() * gameState.remainingEvents.length);
@@ -437,20 +422,17 @@
         return event;
     }
 
-    // ------------------- Игровая логика -------------------
-    const PHASES = ['day', 'night_mafia', 'night_maniac', 'night_doctor', 'night_beauty', 'voting'];
+    // ------------------- Игровая логика с одновременными ночными действиями -------------------
+    const PHASES = ['day', 'night', 'voting'];
     function getDurationForPhase(phase) {
         if (phase === 'day') return gameSettings.day;
         if (phase === 'voting') return gameSettings.vote;
-        return gameSettings.night;
+        return gameSettings.night; // ночь
     }
     function getPhaseDisplay(phase) {
         const map = {
             day: '☀️ Дневное обсуждение',
-            night_mafia: '🌙 Ночь — мафия выбирает жертву',
-            night_maniac: '🌙 Ночь — маньяк выбирает жертву',
-            night_doctor: '💊 Ночь — доктор лечит',
-            night_beauty: '💃 Ночь — красотка выбирает, кого заглушить',
+            night: '🌙 Ночь (все роли выбирают одновременно)',
             voting: '🗳️ Голосование (нажмите на аватар для голоса)'
         };
         return map[phase] || phase;
@@ -486,9 +468,9 @@
         updateVoiceChatAccess();
         const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
         if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay(currentPhase);
-        if (currentPhase.includes('night')) triggerNightAction();
-        else if (currentPhase === 'day') {
-            // генерация городского события без повтора
+        if (currentPhase === 'night') {
+            triggerNightActions();  // все действия ночи запускаются одновременно
+        } else if (currentPhase === 'day') {
             const eventText = getRandomCityEvent();
             addChatMessage('🌆 Городские новости', eventText, 'event-message');
             if (silencedPlayers.size) {
@@ -497,49 +479,68 @@
             }
         }
     }
-    function triggerNightAction() {
+    function triggerNightActions() {
         const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
         if (!currentPlayer || !currentPlayer.alive) return;
-        let actionType = null;
-        if (currentPhase === 'night_mafia' && currentPlayer.role === 'mafia') actionType = 'mafia';
-        else if (currentPhase === 'night_maniac' && currentPlayer.role === 'maniac') actionType = 'maniac';
-        else if (currentPhase === 'night_doctor' && currentPlayer.role === 'doctor') actionType = 'doctor';
-        else if (currentPhase === 'night_beauty' && currentPlayer.role === 'beauty') actionType = 'beauty';
-        if (!actionType) return;
-        const aliveOthers = gameState.players.filter(p => p.alive && p.id !== currentPlayer.id);
-        if (aliveOthers.length === 0) {
-            addChatMessage('Система', 'Некого выбирать, фаза пропускается.');
+
+        // Определяем, какие роли есть у игрока
+        let actions = [];
+        if (currentPlayer.role === 'mafia') actions.push({ type: 'mafia', title: 'Выберите жертву (мафия)' });
+        if (currentPlayer.role === 'maniac') actions.push({ type: 'maniac', title: 'Выберите жертву (маньяк)' });
+        if (currentPlayer.role === 'doctor') actions.push({ type: 'doctor', title: 'Кого лечить? (спасёт от убийства)' });
+        if (currentPlayer.role === 'beauty') actions.push({ type: 'beauty', title: 'Кого заглушить? (игрок не сможет говорить завтра днём)' });
+
+        if (actions.length === 0) {
+            // У игрока нет активной роли, он просто ждёт окончания ночи
+            addChatMessage('Система', 'Ночь. Вы не можете совершать действий.', 'event-message');
             return;
         }
-        const modal = document.getElementById('actionModal');
-        let title = '';
-        if (actionType === 'mafia') title = 'Выберите жертву (мафия)';
-        else if (actionType === 'maniac') title = 'Выберите жертву (маньяк)';
-        else if (actionType === 'doctor') title = 'Кого лечить? (спасёт от убийства)';
-        else if (actionType === 'beauty') title = 'Кого заглушить? (игрок не сможет говорить завтра днём)';
-        document.getElementById('modalTitle').innerText = title;
-        const optionsDiv = document.getElementById('modalOptions');
-        optionsDiv.innerHTML = aliveOthers.map(p => `<div class="vote-option" data-id="${p.id}">${p.name}</div>`).join('');
-        modal.style.display = 'flex';
-        const clickHandler = (e) => {
-            const targetDiv = e.target.closest('.vote-option');
-            if (!targetDiv) return;
-            const targetId = targetDiv.getAttribute('data-id');
-            if (actionType === 'mafia') gameState.nightActions.mafiaTarget = targetId;
-            else if (actionType === 'maniac') gameState.nightActions.maniacTarget = targetId;
-            else if (actionType === 'doctor') gameState.nightActions.doctorTarget = targetId;
-            else if (actionType === 'beauty') silencedPlayers.add(targetId);
-            modal.style.display = 'none';
-            optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.removeEventListener('click', clickHandler));
-            if (gameInterval) clearInterval(gameInterval);
-            nextPhase();
-        };
-        optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.addEventListener('click', clickHandler));
-        document.getElementById('modalCancelBtn').onclick = () => {
-            modal.style.display = 'none';
-            optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.removeEventListener('click', clickHandler));
-            nextPhase();
-        };
+
+        // Показываем модальные окна последовательно, но все они в рамках одной ночной фазы
+        let currentActionIndex = 0;
+
+        function showNextAction() {
+            if (currentActionIndex >= actions.length) {
+                // Все действия выполнены, ждём окончания ночи (таймер сам завершит фазу)
+                addChatMessage('Система', 'Вы сделали все возможные действия этой ночью.', 'event-message');
+                return;
+            }
+            const action = actions[currentActionIndex];
+            const aliveOthers = gameState.players.filter(p => p.alive && p.id !== currentPlayer.id);
+            if (aliveOthers.length === 0) {
+                addChatMessage('Система', `Некого выбирать для действия "${action.title}".`, 'event-message');
+                currentActionIndex++;
+                showNextAction();
+                return;
+            }
+            const modal = document.getElementById('actionModal');
+            document.getElementById('modalTitle').innerText = action.title;
+            const optionsDiv = document.getElementById('modalOptions');
+            optionsDiv.innerHTML = aliveOthers.map(p => `<div class="vote-option" data-id="${p.id}">${p.name}</div>`).join('');
+            modal.style.display = 'flex';
+
+            const clickHandler = (e) => {
+                const targetDiv = e.target.closest('.vote-option');
+                if (!targetDiv) return;
+                const targetId = targetDiv.getAttribute('data-id');
+                if (action.type === 'mafia') gameState.nightActions.mafiaTarget = targetId;
+                else if (action.type === 'maniac') gameState.nightActions.maniacTarget = targetId;
+                else if (action.type === 'doctor') gameState.nightActions.doctorTarget = targetId;
+                else if (action.type === 'beauty') silencedPlayers.add(targetId);
+                modal.style.display = 'none';
+                optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.removeEventListener('click', clickHandler));
+                currentActionIndex++;
+                showNextAction();
+            };
+            optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.addEventListener('click', clickHandler));
+            document.getElementById('modalCancelBtn').onclick = () => {
+                modal.style.display = 'none';
+                optionsDiv.querySelectorAll('.vote-option').forEach(opt => opt.removeEventListener('click', clickHandler));
+                currentActionIndex++;
+                showNextAction();
+            };
+        }
+        showNextAction();
     }
     function resolveNight() {
         const { mafiaTarget, maniacTarget, doctorTarget } = gameState.nightActions;
@@ -569,13 +570,13 @@
         } else addChatMessage('Ведущий', 'Никто не изгнан.');
         gameState.votes = {};
         if (!checkGameEnd()) {
-            gameState.phase = 'night_mafia';
-            currentPhase = 'night_mafia';
-            startPhaseTimer(getDurationForPhase('night_mafia'));
+            gameState.phase = 'night';
+            currentPhase = 'night';
+            startPhaseTimer(getDurationForPhase('night'));
             updateAvatarGrid();
             updateVoiceChatAccess();
             const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
-            if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay('night_mafia');
+            if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay('night');
         }
     }
     function checkGameEnd() {
@@ -760,13 +761,12 @@
                 day: 1,
                 nightActions: { mafiaTarget: null, maniacTarget: null, doctorTarget: null },
                 votes: {},
-                remainingEvents: [...allCityEvents]  // создаём копию всех событий для этой игры
+                remainingEvents: [...allCityEvents]
             };
             currentPhase = 'day';
             skipVotes.clear();
             updateSkipVoteInfo();
             updateAvatarGrid();
-            // первое городское событие без повтора
             const firstEvent = getRandomCityEvent();
             addChatMessage('🌆 Городские новости', firstEvent, 'event-message');
             const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
@@ -808,7 +808,6 @@
     (async () => {
         await initVK();
         await loadProfile();
-        // Убираем экран загрузки
         const loading = document.getElementById('loadingOverlay');
         if (loading) {
             loading.style.opacity = '0';
