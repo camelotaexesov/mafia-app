@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Мафия Online — Полная версия</title>
+    <title>Мафия Online — Сетевая версия</title>
     <style>
+        /* Стили полностью сохранены из оригинальной версии */
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif; background: linear-gradient(135deg, #0b1120 0%, #1e2a3a 100%); min-height: 100vh; color: #e2e8f0; }
         .screen { display: none; padding: 16px; min-height: 100vh; position: relative; }
@@ -76,7 +77,7 @@
 <!-- ГЛАВНОЕ МЕНЮ -->
 <div id="menuScreen" class="screen active">
     <div class="container">
-        <div style="text-align:center; margin-bottom:24px;"><div style="font-size:4rem;">🎭</div><h1 style="font-size:2rem;">МАФИЯ ONLINE</h1><p>Психологическая игра с видеочат-аватарами</p></div>
+        <div style="text-align:center; margin-bottom:24px;"><div style="font-size:4rem;">🎭</div><h1 style="font-size:2rem;">МАФИЯ ONLINE</h1><p>Сетевая игра с видеочат-аватарами</p></div>
         <div id="profilePreview" class="profile-header" style="display:none;">
             <div class="avatar" id="menuAvatar">😊</div>
             <div style="flex:1"><strong id="menuNickname"></strong><div class="level-bar"><div class="level-progress" id="menuProgress"></div></div><span id="menuLevel"></span></div>
@@ -188,7 +189,28 @@
 </div>
 
 <script>
-    // ------------------- Большая библиотека городских событий (без повторений) -------------------
+    // ------------------- Конфигурация API -------------------
+    const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3000'
+        : 'https://ваш-сервер-на-railway.up.railway.app'; // Замените на реальный URL после деплоя
+
+    // ------------------- Глобальные переменные -------------------
+    let currentUser = null;
+    let currentRoomId = null;
+    let lobbyPollInterval = null;
+    let gameState = null;
+    let gameInterval = null;
+    let currentPhase = null;
+    let currentTimer = 0;
+    let localStream = null;
+    let isMicEnabled = true;
+    let isCamEnabled = true;
+    let vkBridgeReady = false;
+    let skipVotes = new Set();
+    let fakeVideoStreams = new Map();
+    let silencedPlayers = new Set();
+    let gameSettings = { day: 45, night: 25, vote: 30, botCount: 3, botDifficulty: 'medium', mafiaCount: 1, roles: { mafia: true, maniac: false, doctor: false, beauty: false, patrol: false } };
+
     const allCityEvents = [
         "🌧️ В городе начался ливень. Обсуждение становится тише, все ищут укрытия.",
         "⚡ Внезапно отключилось электричество. Жители собираются на свечах и гадают, кто же мафия.",
@@ -199,43 +221,10 @@
         "💔 Местная пара разругалась на весь квартал. Сплетни заполонили улицы.",
         "🍂 Листья начали падать раньше срока. Горожане шепчутся о проклятии.",
         "🚔 Полицейский патруль задержал подозрительного типа. Может, это мафия?",
-        "📢 Неизвестный разбрасывает листовки с угрозами. Атмосфера накаляется.",
-        "🐱 Кот мэра украл важные документы, все в шоке! Мэр гоняется за котом.",
-        "🍕 Доставщик пиццы перепутал дома и привёз заказ мафии. Её отпустили с миром, а пиццу съели.",
-        "💃 На центральной площади устроили флешмоб в честь дня города. Все танцуют, даже подозрительные личности.",
-        "📺 Местный телеканал случайно показал запись камер наблюдения, все увидели подозрительного типа в маске.",
-        "🌭 Хот-дог-киоск открылся прямо под окнами мэрии, мэр решил, что это заговор и закрыл его.",
-        "🕊️ Стая голубей облетела город по необычной траектории, горожане считают это знаком.",
-        "🎭 В город приехал бродячий театр, его постановка вызвала неоднозначную реакцию.",
-        "🔮 Местная гадалка предсказала скорую развязку, никто не понял, шутка ли это.",
-        "🛸 Над городом заметили странный летающий объект. Горожане спорят, что это: НЛО или мафия на вертолёте.",
-        "📞 Кто-то звонит в колокола на центральной площади, никто не понимает, зачем.",
-        "🍔 В городском парке устроили фестиваль фастфуда. Все отвлеклись, но голодные мафиози тоже пришли.",
-        "🐿️ Белка украла бутерброд у мэра прямо во время его речи. Мэр возмущён.",
-        "🎸 Уличный музыкант играет на гитаре, его песни намекают на предательство.",
-        "🪄 Фокусник на площади показывает трюки. Некоторые думают, что это магия мафии.",
-        "🚲 Велосипедист в костюме аиста проехал по городу, все гадают, что это значит."
+        "📢 Неизвестный разбрасывает листовки с угрозами. Атмосфера накаляется."
     ];
 
-    // ------------------- Глобальные переменные -------------------
-    let currentUser = null;
-    let gameState = null;
-    let lobbyPlayers = [];
-    let isHost = false;
-    let gameInterval = null;
-    let currentPhase = null;
-    let currentTimer = 0;
-    let localStream = null;
-    let isMicEnabled = true;
-    let isCamEnabled = true;
-    let vkBridgeReady = false;
-    let gameSettings = { day: 45, night: 25, vote: 30, botCount: 3, botDifficulty: 'medium', mafiaCount: 1, roles: { mafia: true, maniac: false, doctor: false, beauty: false, patrol: false } };
-    let skipVotes = new Set();
-    let fakeVideoStreams = new Map();
-    let silencedPlayers = new Set();
-    let currentLobbyCode = null;
-
-    // ------------------- VK Bridge (с таймаутом и гарантированным завершением) -------------------
+    // ------------------- VK Bridge (копия из оригинального кода) -------------------
     async function initVK() {
         return new Promise((resolve) => {
             if (typeof window.VKWebAppInit !== 'function') {
@@ -278,11 +267,10 @@
         });
     }
 
-    // ------------------- Профиль -------------------
+    // ------------------- Профиль (синхронизация с локальным хранилищем и VK) -------------------
     async function loadProfile() {
         const saved = localStorage.getItem('mafiaUser');
         if (saved) currentUser = JSON.parse(saved);
-        // Пытаемся получить VK данные только если Bridge инициализирован и нет vk_id
         if (vkBridgeReady && !currentUser?.vk_id) {
             try {
                 const vkUser = await getVKUser();
@@ -295,12 +283,10 @@
                     };
                     await saveProfile();
                 }
-            } catch (e) {
-                console.warn("Не удалось получить данные VK", e);
-            }
+            } catch (e) { console.warn(e); }
         }
         if (!currentUser) {
-            currentUser = { nickname: 'Гость', avatar: '😊', level: 1, xp: 0, wins: 0, games: 0, difficulty: 'medium' };
+            currentUser = { nickname: 'Гость', avatar: '😊', level: 1, xp: 0, wins: 0, games: 0, difficulty: 'medium', vk_id: Math.floor(Math.random() * 1000000) };
         }
         updateProfileUI();
     }
@@ -318,7 +304,7 @@
         document.getElementById('profilePreview').style.display = 'flex';
     }
 
-    // ------------------- Медиа -------------------
+    // ------------------- Медиа (камера, микрофон) -------------------
     async function initMedia() {
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -327,11 +313,8 @@
             const videoTracks = localStream.getVideoTracks();
             if (videoTracks.length) videoTracks[0].enabled = isCamEnabled;
             updateMediaUI();
-            updateAvatarGrid();
-        } catch (e) { 
-            console.warn("Не удалось получить доступ к камере/микрофону", e);
-            showMessage("Не удалось получить доступ к камере/микрофону. Вы можете играть без видео/звука.", true);
-        }
+            if (gameState) updateAvatarGrid();
+        } catch (e) { showMessage("Не удалось получить доступ к камере/микрофону", true); }
     }
     function updateMediaUI() {
         document.getElementById('toggleMicBtn').innerHTML = isMicEnabled ? '🎤 Микрофон (вкл)' : '🔇 Микрофон (выкл)';
@@ -373,12 +356,9 @@
         else statusSpan.innerHTML = '🔇 Ночная фаза (микрофон выключен)';
         statusSpan.style.color = canTalk ? '#10b981' : '#f59e0b';
     }
-
-    // ------------------- Искусственное видео для ботов -------------------
     function createFakeVideoStream() {
         const canvas = document.createElement('canvas');
-        canvas.width = 160;
-        canvas.height = 160;
+        canvas.width = 160; canvas.height = 160;
         const ctx = canvas.getContext('2d');
         let hue = 0;
         const stream = canvas.captureStream(30);
@@ -399,7 +379,169 @@
         return stream;
     }
 
-    // ------------------- Распределение ролей -------------------
+    // ------------------- API вызовы -------------------
+    async function createRoom(settings) {
+        const response = await fetch(`${API_BASE_URL}/api/create_room`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                vk_id: currentUser.vk_id,
+                nickname: currentUser.nickname,
+                avatar: currentUser.avatarUrl || currentUser.avatar,
+                settings: settings
+            })
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return await response.json();
+    }
+
+    async function joinRoom(code) {
+        const response = await fetch(`${API_BASE_URL}/api/join_room`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                vk_id: currentUser.vk_id,
+                nickname: currentUser.nickname,
+                avatar: currentUser.avatarUrl || currentUser.avatar,
+                code: code
+            })
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return await response.json();
+    }
+
+    async function fetchRoomPlayers(roomId) {
+        const response = await fetch(`${API_BASE_URL}/api/room_players/${roomId}`);
+        if (!response.ok) throw new Error('Не удалось получить список игроков');
+        return await response.json();
+    }
+
+    async function setReady(roomId, userId, isReady) {
+        const response = await fetch(`${API_BASE_URL}/api/set_ready`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId, userId, isReady })
+        });
+        if (!response.ok) throw new Error('Ошибка при обновлении статуса');
+        return await response.json();
+    }
+
+    async function startGameOnServer(roomId, hostId) {
+        const response = await fetch(`${API_BASE_URL}/api/start_game`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId, hostId })
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return await response.json();
+    }
+
+    // ------------------- Лобби и управление комнатой -------------------
+    function startPollingPlayers() {
+        if (lobbyPollInterval) clearInterval(lobbyPollInterval);
+        lobbyPollInterval = setInterval(async () => {
+            if (!currentRoomId) return;
+            try {
+                const players = await fetchRoomPlayers(currentRoomId);
+                updateLobbyUI(players);
+            } catch (err) {
+                console.warn('Ошибка polling', err);
+            }
+        }, 2000);
+    }
+
+    function updateLobbyUI(players) {
+        const container = document.getElementById('lobbyPlayersList');
+        container.innerHTML = players.map(p => `
+            <div class="player-card ${p.is_host ? 'host' : ''} ${p.is_ready ? 'ready' : ''}">
+                <div class="avatar" style="margin:0 auto;">${p.avatar || '😊'}</div>
+                <div>${p.nickname} ${p.is_host ? '👑' : ''}</div>
+                <div>${p.is_ready ? '✅' : '⏳'}</div>
+            </div>
+        `).join('');
+        const readyCount = players.filter(p => p.is_ready).length;
+        const startBtn = document.getElementById('startGameBtn');
+        const isHost = players.find(p => p.nickname === currentUser.nickname && p.is_host);
+        startBtn.disabled = readyCount < 4 || !isHost;
+        if (isHost) startBtn.disabled = false;
+        else startBtn.disabled = true;
+    }
+
+    async function createLobbyFromSettings() {
+        const botCount = parseInt(document.getElementById('botCountSlider').value, 10);
+        const botDifficulty = document.getElementById('botDifficultySelect').value;
+        const day = parseInt(document.getElementById('dayDuration').value, 10);
+        const night = parseInt(document.getElementById('nightDuration').value, 10);
+        const vote = parseInt(document.getElementById('voteDuration').value, 10);
+        const mafiaCount = parseInt(document.getElementById('mafiaCount').value, 10);
+        const settings = {
+            botCount, botDifficulty, day, night, vote, mafiaCount,
+            roles: {
+                mafia: true,
+                maniac: document.getElementById('roleManiac').checked,
+                doctor: document.getElementById('roleDoctor').checked,
+                beauty: document.getElementById('roleBeauty').checked,
+                patrol: document.getElementById('rolePatrol').checked
+            }
+        };
+        try {
+            const { roomId, code } = await createRoom(settings);
+            currentRoomId = roomId;
+            document.getElementById('roomCode').innerText = code;
+            startPollingPlayers();
+            showScreen('lobbyScreen');
+            document.getElementById('gameSettingsModal').style.display = 'none';
+        } catch (err) {
+            showMessage(err.message, true);
+        }
+    }
+
+    async function joinGameByCode() {
+        const code = prompt("Введите 6-значный код игры:");
+        if (!code) return;
+        if (code.length !== 6 || !/^\d+$/.test(code)) {
+            showMessage("Неверный формат кода (6 цифр)", true);
+            return;
+        }
+        try {
+            const { roomId } = await joinRoom(code);
+            currentRoomId = roomId;
+            startPollingPlayers();
+            showScreen('lobbyScreen');
+            document.getElementById('roomCode').innerText = code;
+        } catch (err) {
+            showMessage(err.message, true);
+        }
+    }
+
+    async function onReady() {
+        if (!currentRoomId) return;
+        try {
+            await setReady(currentRoomId, currentUser.vk_id, true);
+        } catch (err) {
+            showMessage(err.message, true);
+        }
+    }
+
+    async function onStartGame() {
+        if (!currentRoomId) return;
+        try {
+            await startGameOnServer(currentRoomId, currentUser.vk_id);
+            // Останавливаем polling, переходим к игре
+            if (lobbyPollInterval) clearInterval(lobbyPollInterval);
+            // Получаем список игроков для старта игры
+            const players = await fetchRoomPlayers(currentRoomId);
+            const realPlayers = players.filter(p => !p.is_bot);
+            const bots = players.filter(p => p.is_bot).map((p, idx) => ({ name: p.nickname, avatar: p.avatar, isBot: true, difficulty: 'medium' }));
+            const allPlayers = [...realPlayers.map(p => ({ name: p.nickname, avatar: p.avatar, isBot: false })), ...bots];
+            // Запускаем игру локально (распределение ролей, фазы)
+            startLocalGame(allPlayers);
+        } catch (err) {
+            showMessage(err.message, true);
+        }
+    }
+
+    // ------------------- Игровая логика (копия из оригинального кода) -------------------
     function assignRolesFromSettings(players) {
         const roles = [];
         for (let i = 0; i < gameSettings.mafiaCount; i++) roles.push('mafia');
@@ -415,14 +557,13 @@
         players.forEach((p, idx) => {
             p.role = roles[idx];
             p.alive = true;
-            p.id = p.id || `p${Date.now()}_${idx}`;
+            p.id = p.name;
             p.camOn = true; p.micOn = true;
             if (p.name === currentUser.nickname) { p.camOn = isCamEnabled; p.micOn = isMicEnabled; }
         });
         return players;
     }
 
-    // ------------------- Генератор событий без повторов -------------------
     function getRandomCityEvent() {
         if (!gameState.remainingEvents || gameState.remainingEvents.length === 0) {
             gameState.remainingEvents = [...allCityEvents];
@@ -433,7 +574,6 @@
         return event;
     }
 
-    // ------------------- Игровая логика -------------------
     const PHASES = ['day', 'night', 'voting'];
     function getDurationForPhase(phase) {
         if (phase === 'day') return gameSettings.day;
@@ -493,20 +633,16 @@
     function triggerNightActions() {
         const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
         if (!currentPlayer || !currentPlayer.alive) return;
-
         let actions = [];
         if (currentPlayer.role === 'mafia') actions.push({ type: 'mafia', title: 'Выберите жертву (мафия)' });
         if (currentPlayer.role === 'maniac') actions.push({ type: 'maniac', title: 'Выберите жертву (маньяк)' });
         if (currentPlayer.role === 'doctor') actions.push({ type: 'doctor', title: 'Кого лечить? (спасёт от убийства)' });
         if (currentPlayer.role === 'beauty') actions.push({ type: 'beauty', title: 'Кого заглушить? (игрок не сможет говорить завтра днём)' });
-
         if (actions.length === 0) {
             addChatMessage('Система', 'Ночь. Вы не можете совершать действий.', 'event-message');
             return;
         }
-
         let currentActionIndex = 0;
-
         function showNextAction() {
             if (currentActionIndex >= actions.length) {
                 addChatMessage('Система', 'Вы сделали все возможные действия этой ночью.', 'event-message');
@@ -525,7 +661,6 @@
             const optionsDiv = document.getElementById('modalOptions');
             optionsDiv.innerHTML = aliveOthers.map(p => `<div class="vote-option" data-id="${p.id}">${p.name}</div>`).join('');
             modal.style.display = 'flex';
-
             const clickHandler = (e) => {
                 const targetDiv = e.target.closest('.vote-option');
                 if (!targetDiv) return;
@@ -610,7 +745,41 @@
         showScreen('menuScreen');
     }
 
-    // ------------------- Обновление сетки видео-аватаров -------------------
+    function startLocalGame(players) {
+        const assigned = assignRolesFromSettings(players);
+        gameState = {
+            players: assigned,
+            phase: 'day',
+            day: 1,
+            nightActions: { mafiaTarget: null, maniacTarget: null, doctorTarget: null },
+            votes: {},
+            remainingEvents: [...allCityEvents]
+        };
+        currentPhase = 'day';
+        skipVotes.clear();
+        updateSkipVoteInfo();
+        updateAvatarGrid();
+        const firstEvent = getRandomCityEvent();
+        addChatMessage('🌆 Городские новости', firstEvent, 'event-message');
+        const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
+        if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay('day');
+        startPhaseTimer(getDurationForPhase('day'));
+        updateVoiceChatAccess();
+        const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
+        if (currentPlayer) {
+            let roleMsg = '', roleIcon = '';
+            switch (currentPlayer.role) {
+                case 'mafia': roleMsg = 'Вы — МАФИЯ. Убивайте мирных жителей ночью.'; roleIcon = '🔪'; break;
+                case 'maniac': roleMsg = 'Вы — МАНЬЯК. Убиваете одну жертву каждую ночь.'; roleIcon = '🔪🔪'; break;
+                case 'doctor': roleMsg = 'Вы — ДОКТОР. Лечите игроков от убийства.'; roleIcon = '💊'; break;
+                case 'beauty': roleMsg = 'Вы — КРАСОТКА. Ночью заглушаете игрока на следующий день.'; roleIcon = '💃'; break;
+                case 'patrol': roleMsg = 'Вы — ПАТРУЛЬНЫЙ. Проверяете, мафия ли игрок.'; roleIcon = '👮'; break;
+                default: roleMsg = 'Вы — МИРНЫЙ ЖИТЕЛЬ.'; roleIcon = '👤';
+            }
+            showRoleModal(roleIcon, roleMsg, () => {});
+        }
+    }
+
     function updateAvatarGrid() {
         if (!gameState) return;
         const container = document.getElementById('avatarGrid');
@@ -683,7 +852,6 @@
         chatDiv.scrollTop = chatDiv.scrollHeight;
     }
 
-    // ------------------- Пропуск фазы -------------------
     function updateSkipVoteInfo() {
         if (!gameState) return;
         const alive = gameState.players.filter(p => p.alive).length;
@@ -706,135 +874,6 @@
         }
     }
 
-    // ------------------- Лобби с подключением реальных игроков -------------------
-    function showGameSettings() {
-        document.getElementById('botCountSlider').value = gameSettings.botCount;
-        document.getElementById('botCountValue').innerText = gameSettings.botCount;
-        document.getElementById('botDifficultySelect').value = gameSettings.botDifficulty;
-        document.getElementById('dayDuration').value = gameSettings.day;
-        document.getElementById('nightDuration').value = gameSettings.night;
-        document.getElementById('voteDuration').value = gameSettings.vote;
-        document.getElementById('mafiaCount').value = gameSettings.mafiaCount;
-        document.getElementById('roleMafia').checked = gameSettings.roles.mafia;
-        document.getElementById('roleManiac').checked = gameSettings.roles.maniac;
-        document.getElementById('roleDoctor').checked = gameSettings.roles.doctor;
-        document.getElementById('roleBeauty').checked = gameSettings.roles.beauty;
-        document.getElementById('rolePatrol').checked = gameSettings.roles.patrol;
-        document.getElementById('gameSettingsModal').style.display = 'flex';
-    }
-    function createLobbyFromSettings() {
-        const botCount = parseInt(document.getElementById('botCountSlider').value, 10);
-        const botDifficulty = document.getElementById('botDifficultySelect').value;
-        const day = parseInt(document.getElementById('dayDuration').value, 10);
-        const night = parseInt(document.getElementById('nightDuration').value, 10);
-        const vote = parseInt(document.getElementById('voteDuration').value, 10);
-        const mafiaCount = parseInt(document.getElementById('mafiaCount').value, 10);
-        gameSettings = {
-            botCount, botDifficulty, day, night, vote, mafiaCount,
-            roles: {
-                mafia: true,
-                maniac: document.getElementById('roleManiac').checked,
-                doctor: document.getElementById('roleDoctor').checked,
-                beauty: document.getElementById('roleBeauty').checked,
-                patrol: document.getElementById('rolePatrol').checked
-            }
-        };
-        lobbyPlayers = [];
-        const playerId = 'p' + Date.now() + '_' + Math.random();
-        lobbyPlayers.push({ id: playerId, name: currentUser.nickname, avatar: currentUser.avatar || '😊', isHost: true, isReady: true, isBot: false });
-        isHost = true;
-        for (let i = 0; i < botCount; i++) {
-            lobbyPlayers.push({ id: 'bot' + Date.now() + '_' + i, name: `Бот ${i+1}`, avatar: '🤖', isHost: false, isReady: true, isBot: true, difficulty: botDifficulty });
-        }
-        currentLobbyCode = Math.floor(100000 + Math.random() * 900000).toString();
-        document.getElementById('roomCode').innerText = currentLobbyCode;
-        updateLobbyUI();
-        showScreen('lobbyScreen');
-        document.getElementById('gameSettingsModal').style.display = 'none';
-    }
-    function updateLobbyUI() {
-        const container = document.getElementById('lobbyPlayersList');
-        container.innerHTML = lobbyPlayers.map(p => `<div class="player-card ${p.isHost ? 'host' : ''} ${p.isReady ? 'ready' : ''}"><div class="avatar" style="margin:0 auto;">${p.avatar}</div><div>${p.name} ${p.isHost ? '👑' : ''}</div><div>${p.isReady ? '✅' : '⏳'}</div></div>`).join('');
-        const readyCount = lobbyPlayers.filter(p => p.isReady).length;
-        document.getElementById('startGameBtn').disabled = readyCount < 4 || !isHost;
-    }
-    function joinGameByCode() {
-        const code = prompt("Введите 6-значный код игры:");
-        if (!code) return;
-        if (code.length !== 6 || !/^\d+$/.test(code)) {
-            showMessage("Неверный формат кода (6 цифр)", true);
-            return;
-        }
-        if (!currentLobbyCode) {
-            showMessage("Нет активных лобби. Сначала создайте игру.", true);
-            return;
-        }
-        if (code !== currentLobbyCode) {
-            showMessage("Код не найден. Проверьте правильность.", true);
-            return;
-        }
-        const newId = 'p' + Date.now() + '_' + Math.random();
-        const newPlayer = {
-            id: newId,
-            name: currentUser.nickname,
-            avatar: currentUser.avatar || '😊',
-            isHost: false,
-            isReady: true,
-            isBot: false
-        };
-        lobbyPlayers.push(newPlayer);
-        updateLobbyUI();
-        showMessage(`Вы присоединились к игре! Код: ${code}`);
-    }
-    function startGame() {
-        if (!isHost) {
-            showMessage("Только хост может начать игру", true);
-            return;
-        }
-        const readyCount = lobbyPlayers.filter(p => p.isReady).length;
-        if (readyCount < 4) {
-            showMessage(`Недостаточно игроков (готово ${readyCount}/4)`, true);
-            return;
-        }
-        const allPlayers = [...lobbyPlayers];
-        showScreen('gameScreen');
-        initMedia().then(() => {
-            const players = assignRolesFromSettings(allPlayers);
-            gameState = {
-                players: players,
-                phase: 'day',
-                day: 1,
-                nightActions: { mafiaTarget: null, maniacTarget: null, doctorTarget: null },
-                votes: {},
-                remainingEvents: [...allCityEvents]
-            };
-            currentPhase = 'day';
-            skipVotes.clear();
-            updateSkipVoteInfo();
-            updateAvatarGrid();
-            const firstEvent = getRandomCityEvent();
-            addChatMessage('🌆 Городские новости', firstEvent, 'event-message');
-            const phaseNameSpan = document.getElementById('phaseName').querySelector('span');
-            if (phaseNameSpan) phaseNameSpan.innerText = getPhaseDisplay('day');
-            startPhaseTimer(getDurationForPhase('day'));
-            updateVoiceChatAccess();
-            const currentPlayer = gameState.players.find(p => p.name === currentUser.nickname);
-            if (currentPlayer) {
-                let roleMsg = '', roleIcon = '';
-                switch (currentPlayer.role) {
-                    case 'mafia': roleMsg = 'Вы — МАФИЯ. Убивайте мирных жителей ночью.'; roleIcon = '🔪'; break;
-                    case 'maniac': roleMsg = 'Вы — МАНЬЯК. Убиваете одну жертву каждую ночь.'; roleIcon = '🔪🔪'; break;
-                    case 'doctor': roleMsg = 'Вы — ДОКТОР. Лечите игроков от убийства.'; roleIcon = '💊'; break;
-                    case 'beauty': roleMsg = 'Вы — КРАСОТКА. Ночью заглушаете игрока на следующий день.'; roleIcon = '💃'; break;
-                    case 'patrol': roleMsg = 'Вы — ПАТРУЛЬНЫЙ. Проверяете, мафия ли игрок.'; roleIcon = '👮'; break;
-                    default: roleMsg = 'Вы — МИРНЫЙ ЖИТЕЛЬ.'; roleIcon = '👤';
-                }
-                showRoleModal(roleIcon, roleMsg, () => {});
-            }
-        });
-    }
-
-    // ------------------- UI -------------------
     function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
     function showMessage(text, isError = false) {
         const div = document.createElement('div');
@@ -849,25 +888,19 @@
         document.querySelectorAll('.avatar-option').forEach(el => { if (el.getAttribute('data-avatar') === currentUser.avatar) el.classList.add('selected'); else el.classList.remove('selected'); });
     }
 
-    // ------------------- Инициализация с гарантированным скрытием загрузки -------------------
+    // ------------------- Инициализация -------------------
     (async () => {
         const loading = document.getElementById('loadingOverlay');
-        // Инициализируем VK Bridge (с таймаутом)
         await initVK();
-        // Загружаем профиль (если VK не ответил, создастся локальный)
         await loadProfile();
-        // Всегда скрываем загрузку
         if (loading) {
             loading.style.opacity = '0';
-            setTimeout(() => {
-                loading.style.display = 'none';
-                document.getElementById('appContent').style.display = 'block';
-            }, 300);
+            setTimeout(() => { loading.style.display = 'none'; document.getElementById('appContent').style.display = 'block'; }, 300);
         } else {
             document.getElementById('appContent').style.display = 'block';
         }
-        // Обработчики
-        document.getElementById('createGameBtn').onclick = showGameSettings;
+        // Обработчики событий
+        document.getElementById('createGameBtn').onclick = () => document.getElementById('gameSettingsModal').style.display = 'flex';
         document.getElementById('confirmSettingsBtn').onclick = createLobbyFromSettings;
         document.getElementById('cancelSettingsBtn').onclick = () => document.getElementById('gameSettingsModal').style.display = 'none';
         document.getElementById('joinGameBtn').onclick = joinGameByCode;
@@ -881,10 +914,10 @@
             await saveProfile(); updateProfileUI(); showMessage('Профиль сохранён'); showScreen('menuScreen');
         };
         document.getElementById('vkAuthBtn').onclick = async () => { if (!vkBridgeReady) alert('VK Bridge не инициализирован'); else { await getVKUser(); await loadProfile(); showMessage('VK привязан'); showScreen('menuScreen'); } };
-        document.getElementById('lobbyBackBtn').onclick = () => { currentLobbyCode = null; lobbyPlayers = []; showScreen('menuScreen'); };
-        document.getElementById('readyBtn').onclick = () => { const p = lobbyPlayers.find(p => p.name === currentUser.nickname); if(p) p.isReady = true; updateLobbyUI(); };
-        document.getElementById('startGameBtn').onclick = startGame;
-        document.getElementById('inviteVkBtn').onclick = () => { if(vkBridgeReady) VKWebAppShowInviteBox(); else alert(`Скопируйте код: ${currentLobbyCode}`); };
+        document.getElementById('lobbyBackBtn').onclick = () => { if (lobbyPollInterval) clearInterval(lobbyPollInterval); currentRoomId = null; showScreen('menuScreen'); };
+        document.getElementById('readyBtn').onclick = onReady;
+        document.getElementById('startGameBtn').onclick = onStartGame;
+        document.getElementById('inviteVkBtn').onclick = () => { if(vkBridgeReady) VKWebAppShowInviteBox(); else alert(`Скопируйте код: ${document.getElementById('roomCode').innerText}`); };
         document.getElementById('skipPhaseBtn').onclick = trySkipPhase;
         document.getElementById('toggleMicBtn').onclick = toggleMicrophone;
         document.getElementById('toggleCamBtn').onclick = toggleCamera;
@@ -894,6 +927,8 @@
         document.getElementById('achievementsBtn').onclick = () => alert('Достижения будут в следующих обновлениях!');
         document.getElementById('botCountSlider').addEventListener('input', () => document.getElementById('botCountValue').innerText = document.getElementById('botCountSlider').value);
         document.querySelectorAll('.avatar-option').forEach(el => el.onclick = () => { document.querySelectorAll('.avatar-option').forEach(e => e.classList.remove('selected')); el.classList.add('selected'); });
+        // Инициализация медиа после загрузки
+        await initMedia();
     })();
 </script>
 </body>
