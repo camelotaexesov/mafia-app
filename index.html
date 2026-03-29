@@ -189,10 +189,8 @@
 </div>
 
 <script>
-    // ------------------- Конфигурация API -------------------
-    const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3000'
-        : 'https://ваш-сервер-на-railway.up.railway.app'; // Замените на реальный URL после деплоя
+    // ------------------- Конфигурация API (заменено на реальный URL сервера) -------------------
+    const API_BASE_URL = 'https://postgres-production-b70d.up.railway.app';
 
     // ------------------- Глобальные переменные -------------------
     let currentUser = null;
@@ -224,7 +222,7 @@
         "📢 Неизвестный разбрасывает листовки с угрозами. Атмосфера накаляется."
     ];
 
-    // ------------------- VK Bridge (копия из оригинального кода) -------------------
+    // ------------------- VK Bridge -------------------
     async function initVK() {
         return new Promise((resolve) => {
             if (typeof window.VKWebAppInit !== 'function') {
@@ -267,7 +265,7 @@
         });
     }
 
-    // ------------------- Профиль (синхронизация с локальным хранилищем и VK) -------------------
+    // ------------------- Профиль -------------------
     async function loadProfile() {
         const saved = localStorage.getItem('mafiaUser');
         if (saved) currentUser = JSON.parse(saved);
@@ -304,7 +302,7 @@
         document.getElementById('profilePreview').style.display = 'flex';
     }
 
-    // ------------------- Медиа (камера, микрофон) -------------------
+    // ------------------- Медиа -------------------
     async function initMedia() {
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -527,21 +525,18 @@
         if (!currentRoomId) return;
         try {
             await startGameOnServer(currentRoomId, currentUser.vk_id);
-            // Останавливаем polling, переходим к игре
             if (lobbyPollInterval) clearInterval(lobbyPollInterval);
-            // Получаем список игроков для старта игры
             const players = await fetchRoomPlayers(currentRoomId);
             const realPlayers = players.filter(p => !p.is_bot);
             const bots = players.filter(p => p.is_bot).map((p, idx) => ({ name: p.nickname, avatar: p.avatar, isBot: true, difficulty: 'medium' }));
             const allPlayers = [...realPlayers.map(p => ({ name: p.nickname, avatar: p.avatar, isBot: false })), ...bots];
-            // Запускаем игру локально (распределение ролей, фазы)
             startLocalGame(allPlayers);
         } catch (err) {
             showMessage(err.message, true);
         }
     }
 
-    // ------------------- Игровая логика (копия из оригинального кода) -------------------
+    // ------------------- Игровая логика -------------------
     function assignRolesFromSettings(players) {
         const roles = [];
         for (let i = 0; i < gameSettings.mafiaCount; i++) roles.push('mafia');
@@ -927,7 +922,6 @@
         document.getElementById('achievementsBtn').onclick = () => alert('Достижения будут в следующих обновлениях!');
         document.getElementById('botCountSlider').addEventListener('input', () => document.getElementById('botCountValue').innerText = document.getElementById('botCountSlider').value);
         document.querySelectorAll('.avatar-option').forEach(el => el.onclick = () => { document.querySelectorAll('.avatar-option').forEach(e => e.classList.remove('selected')); el.classList.add('selected'); });
-        // Инициализация медиа после загрузки
         await initMedia();
     })();
 </script>
