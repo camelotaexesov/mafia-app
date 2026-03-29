@@ -233,9 +233,9 @@
     let skipVotes = new Set();
     let fakeVideoStreams = new Map();
     let silencedPlayers = new Set();
-    let currentLobbyCode = null;    // храним код текущего лобби
+    let currentLobbyCode = null;
 
-    // ------------------- VK Bridge (с таймаутом) -------------------
+    // ------------------- VK Bridge (с таймаутом и гарантированным завершением) -------------------
     async function initVK() {
         return new Promise((resolve) => {
             if (typeof window.VKWebAppInit !== 'function') {
@@ -282,19 +282,26 @@
     async function loadProfile() {
         const saved = localStorage.getItem('mafiaUser');
         if (saved) currentUser = JSON.parse(saved);
+        // Пытаемся получить VK данные только если Bridge инициализирован и нет vk_id
         if (vkBridgeReady && !currentUser?.vk_id) {
-            const vkUser = await getVKUser();
-            if (vkUser) {
-                currentUser = {
-                    nickname: `${vkUser.first_name} ${vkUser.last_name}`,
-                    avatar: '😊',
-                    avatarUrl: vkUser.photo,
-                    level: 1, xp: 0, wins: 0, games: 0, difficulty: 'medium', vk_id: vkUser.id
-                };
-                await saveProfile();
+            try {
+                const vkUser = await getVKUser();
+                if (vkUser) {
+                    currentUser = {
+                        nickname: `${vkUser.first_name} ${vkUser.last_name}`,
+                        avatar: '😊',
+                        avatarUrl: vkUser.photo,
+                        level: 1, xp: 0, wins: 0, games: 0, difficulty: 'medium', vk_id: vkUser.id
+                    };
+                    await saveProfile();
+                }
+            } catch (e) {
+                console.warn("Не удалось получить данные VK", e);
             }
         }
-        if (!currentUser) currentUser = { nickname: 'Гость', avatar: '😊', level: 1, xp: 0, wins: 0, games: 0, difficulty: 'medium' };
+        if (!currentUser) {
+            currentUser = { nickname: 'Гость', avatar: '😊', level: 1, xp: 0, wins: 0, games: 0, difficulty: 'medium' };
+        }
         updateProfileUI();
     }
     async function saveProfile() { localStorage.setItem('mafiaUser', JSON.stringify(currentUser)); }
@@ -321,7 +328,10 @@
             if (videoTracks.length) videoTracks[0].enabled = isCamEnabled;
             updateMediaUI();
             updateAvatarGrid();
-        } catch (e) { showMessage("Не удалось получить доступ к камере/микрофону", true); }
+        } catch (e) { 
+            console.warn("Не удалось получить доступ к камере/микрофону", e);
+            showMessage("Не удалось получить доступ к камере/микрофону. Вы можете играть без видео/звука.", true);
+        }
     }
     function updateMediaUI() {
         document.getElementById('toggleMicBtn').innerHTML = isMicEnabled ? '🎤 Микрофон (вкл)' : '🔇 Микрофон (выкл)';
@@ -736,7 +746,6 @@
         for (let i = 0; i < botCount; i++) {
             lobbyPlayers.push({ id: 'bot' + Date.now() + '_' + i, name: `Бот ${i+1}`, avatar: '🤖', isHost: false, isReady: true, isBot: true, difficulty: botDifficulty });
         }
-        // Генерируем код комнаты (6 цифр)
         currentLobbyCode = Math.floor(100000 + Math.random() * 900000).toString();
         document.getElementById('roomCode').innerText = currentLobbyCode;
         updateLobbyUI();
@@ -756,7 +765,6 @@
             showMessage("Неверный формат кода (6 цифр)", true);
             return;
         }
-        // В демо-версии просто проверяем, что код совпадает с текущим лобби, если оно существует
         if (!currentLobbyCode) {
             showMessage("Нет активных лобби. Сначала создайте игру.", true);
             return;
@@ -765,7 +773,6 @@
             showMessage("Код не найден. Проверьте правильность.", true);
             return;
         }
-        // Подключаемся как новый реальный игрок
         const newId = 'p' + Date.now() + '_' + Math.random();
         const newPlayer = {
             id: newId,
@@ -778,7 +785,6 @@
         lobbyPlayers.push(newPlayer);
         updateLobbyUI();
         showMessage(`Вы присоединились к игре! Код: ${code}`);
-        // Если подключились после того, как игра уже началась, это недопустимо, но у нас лобби ещё активно
     }
     function startGame() {
         if (!isHost) {
@@ -843,11 +849,14 @@
         document.querySelectorAll('.avatar-option').forEach(el => { if (el.getAttribute('data-avatar') === currentUser.avatar) el.classList.add('selected'); else el.classList.remove('selected'); });
     }
 
-    // ------------------- Инициализация -------------------
+    // ------------------- Инициализация с гарантированным скрытием загрузки -------------------
     (async () => {
-        await initVK();
-        await loadProfile();
         const loading = document.getElementById('loadingOverlay');
+        // Инициализируем VK Bridge (с таймаутом)
+        await initVK();
+        // Загружаем профиль (если VK не ответил, создастся локальный)
+        await loadProfile();
+        // Всегда скрываем загрузку
         if (loading) {
             loading.style.opacity = '0';
             setTimeout(() => {
